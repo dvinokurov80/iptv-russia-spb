@@ -148,15 +148,7 @@ def set_group(extinf, group, title):
 def main():
     national = list(parse_m3u(download(NATIONAL_URL)))
     spb = list(parse_m3u(download(SPB_URL)))
-    print("SOURCE COUNTS national={} spb={}".format(len(national), len(spb)))
-    for label, records in (("NATIONAL", national), ("SPB", spb)):
-        print(label + " SAMPLE:")
-        for sample_extinf, sample_url in records[:25]:
-            sample_meta = attrs(sample_extinf)
-            print("  id={!r} name={!r} display={!r}".format(
-                sample_meta.get("tvg-id"), sample_meta.get("tvg-name"),
-                sample_extinf.rsplit(",", 1)[-1].strip()
-            ))
+    print("Loaded {} national and {} Saint Petersburg source entries".format(len(national), len(spb)))
     output = ['#EXTM3U x-tvg-url="' + EPG_URL + '"']
     selected = []
 
@@ -166,7 +158,8 @@ def main():
         metadata = attrs(extinf)
         source_name = clean_name(extinf, metadata)
         normalized_name = normalized(source_name)
-        channel_id = metadata.get("tvg-id", "").lower().split("@", 1)[0]\n        title = FEDERAL_IDS.get(channel_id)
+        channel_id = metadata.get("tvg-id", "").lower().split("@", 1)[0]
+        title = FEDERAL_IDS.get(channel_id)
         if not title:
             # Try exact/leading name matches as a fallback for feeds without EPG IDs.
             for candidate, russian_title in sorted(FEDERAL_NAMES.items(), key=lambda item: len(item[0]), reverse=True):
