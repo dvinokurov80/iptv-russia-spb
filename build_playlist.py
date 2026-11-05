@@ -8,9 +8,34 @@ import re
 
 NATIONAL_URL = "https://iptv-org.github.io/iptv/countries/ru.m3u"
 SPB_URL = "https://iptv-org.github.io/iptv/subdivisions/ru-spe.m3u"
-EPG_URL = "https://epg.it999.ru/ru.xml.gz"
+EPG_URL = "http://epg.it999.ru/ru.xml.gz"
 OUTPUT = Path("playlist.m3u")
 
+FEDERAL_IDS = {
+    "channelone.ru": "Первый канал",
+    "russia1.ru": "Россия 1",
+    "russia24.ru": "Россия 24",
+    "russiak.ru": "Россия Культура",
+    "ntv.ru": "НТВ",
+    "rentv.ru": "РЕН ТВ",
+    "sts.ru": "СТС",
+    "tnt.ru": "ТНТ",
+    "tv3.ru": "ТВ-3",
+    "friday.ru": "Пятница!",
+    "muztv.ru": "МУЗ-ТВ",
+    "domashniy.ru": "Домашний",
+    "tvcentr.ru": "ТВ Центр",
+    "zvezda.ru": "Звезда",
+    "otr.ru": "ОТР",
+    "spas.ru": "Спас",
+    "karusel.ru": "Карусель",
+    "match.ru": "Матч ТВ",
+    "matchtv.ru": "Матч ТВ",
+    "mir.ru": "Мир",
+    "mir24.ru": "Мир 24",
+    "rbc.ru": "РБК",
+    "5kanal.ru": "Пятый канал",
+}
 FEDERAL_NAMES = {
     "первый канал": "Первый канал",
     "россия 1": "Россия 1",
