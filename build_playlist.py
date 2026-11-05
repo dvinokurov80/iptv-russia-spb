@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.error import HTTPError, URLError
+import gzip
 import json
 import re
 import xml.etree.ElementTree as ET
@@ -19,7 +20,7 @@ SOURCES = {
     "len": "https://iptv-org.github.io/iptv/subdivisions/ru-len.m3u",
 }
 API = "https://iptv-org.github.io/api"
-EPG_URL = "https://iptv-org.github.io/epg/guides/ru/tv.yandex.ru.epg.xml"
+EPG_URL = "https://epg.one/ru.xml.gz"
 OUTPUT = Path("playlist.m3u")
 
 # Only nationwide feeds and feeds explicitly assigned to Saint Petersburg
@@ -142,7 +143,10 @@ def is_excluded_channel(channel, title):
 def download_text(url):
     request = Request(url, headers={"User-Agent": "iptv-russia-spb-playlist/2.0"})
     with urlopen(request, timeout=60) as response:
-        return response.read().decode("utf-8-sig", errors="replace")
+        data = response.read()
+    if url.lower().endswith(".gz"):
+        data = gzip.decompress(data)
+    return data.decode("utf-8-sig", errors="replace")
 
 def download_json(name):
     return json.loads(download_text(f"{API}/{name}.json"))
@@ -166,7 +170,7 @@ def normalize_epg_name(value):
     return re.sub(r"[^0-9a-zа-яё]+", "", (value or "").casefold())
 
 def apply_epg_ids(chosen):
-    """Match playlist channels to IDs that actually occur in the XMLTV guide."""
+    """Match playlist channels to IDs with actual programmes in the Russian XMLTV guide."""
     try:
         root = ET.fromstring(download_text(EPG_URL))
         programme_ids = {
@@ -186,18 +190,31 @@ def apply_epg_ids(chosen):
         exact = 0
         by_name = 0
         unmatched = 0
+        used_ids = set()
+        name_counts = {}
+        for item in chosen.values():
+            name = normalize_epg_name(item.get("title"))
+            name_counts[name] = name_counts.get(name, 0) + 1
+
         for channel_id, item in chosen.items():
             if channel_id in programme_ids:
                 item["epg_id"] = channel_id
+                used_ids.add(channel_id)
                 exact += 1
+
+        for channel_id, item in chosen.items():
+            if "epg_id" in item:
                 continue
-            candidates = names_by_id.get(normalize_epg_name(item.get("title")), set())
-            if len(candidates) == 1:
+            name = normalize_epg_name(item.get("title"))
+            candidates = names_by_id.get(name, set()) - used_ids
+            if name_counts.get(name) == 1 and len(candidates) == 1:
                 item["epg_id"] = next(iter(candidates))
+                used_ids.add(item["epg_id"])
                 by_name += 1
             else:
                 item["epg_id"] = channel_id
                 unmatched += 1
+
         print(
             f"EPG matching: {exact} exact IDs, {by_name} unique name matches, "
             f"{unmatched} without a confirmed programme ID "
