@@ -1,5 +1,9 @@
 name: Update IPTV playlist
 
+concurrency:
+  group: update-iptv-playlist
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
