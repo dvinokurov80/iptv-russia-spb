@@ -166,7 +166,7 @@ def main():
         metadata = attrs(extinf)
         source_name = clean_name(extinf, metadata)
         normalized_name = normalized(source_name)
-        title = FEDERAL_IDS.get(metadata.get("tvg-id", "").lower())
+        channel_id = metadata.get("tvg-id", "").lower().split("@", 1)[0]\n        title = FEDERAL_IDS.get(channel_id)
         if not title:
             # Try exact/leading name matches as a fallback for feeds without EPG IDs.
             for candidate, russian_title in sorted(FEDERAL_NAMES.items(), key=lambda item: len(item[0]), reverse=True):
