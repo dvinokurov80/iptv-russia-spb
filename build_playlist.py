@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.error import HTTPError, URLError
 import json
 import re
+import xml.etree.ElementTree as ET
 
 SOURCES = {
     "national": "https://iptv-org.github.io/iptv/countries/ru.m3u",
@@ -161,6 +162,52 @@ def parse_m3u(text):
 def attrs(extinf):
     return dict(re.findall(r'([\w-]+)="([^"]*)"', extinf))
 
+def normalize_epg_name(value):
+    return re.sub(r"[^0-9a-zа-яё]+", "", (value or "").casefold())
+
+def apply_epg_ids(chosen):
+    """Match playlist channels to IDs that actually occur in the XMLTV guide."""
+    try:
+        root = ET.fromstring(download_text(EPG_URL))
+        programme_ids = {
+            node.get("channel") for node in root.findall("programme")
+            if node.get("channel")
+        }
+        names_by_id = {}
+        for node in root.findall("channel"):
+            channel_id = node.get("id")
+            if not channel_id or channel_id not in programme_ids:
+                continue
+            for display_name in node.findall("display-name"):
+                name = normalize_epg_name(display_name.text or "")
+                if name:
+                    names_by_id.setdefault(name, set()).add(channel_id)
+
+        exact = 0
+        by_name = 0
+        unmatched = 0
+        for channel_id, item in chosen.items():
+            if channel_id in programme_ids:
+                item["epg_id"] = channel_id
+                exact += 1
+                continue
+            candidates = names_by_id.get(normalize_epg_name(item.get("title")), set())
+            if len(candidates) == 1:
+                item["epg_id"] = next(iter(candidates))
+                by_name += 1
+            else:
+                item["epg_id"] = channel_id
+                unmatched += 1
+        print(
+            f"EPG matching: {exact} exact IDs, {by_name} unique name matches, "
+            f"{unmatched} without a confirmed programme ID "
+            f"(guide contains {len(programme_ids)} channel IDs)"
+        )
+    except Exception as error:
+        for channel_id, item in chosen.items():
+            item["epg_id"] = channel_id
+        print(f"WARNING: could not verify EPG coverage: {error}")
+
 def has_cyrillic(value):
     return bool(re.search(r"[А-Яа-яЁё]", value or ""))
 
@@ -190,13 +237,13 @@ def display_name(extinf, metadata, channel):
     canonical = channel.get("name") or (candidates[0] if candidates else channel.get("id", ""))
     return remove_quality(canonical.strip())
 
-def clean_extinf(extinf, channel_id, group, title):
+def clean_extinf(extinf, channel_id, group, title, epg_id=None):
     # Rebuild the attribute list instead of carrying arbitrary source attributes.
     # Some upstream entries contain malformed/unclosed http-user-agent quotes,
     # which can make IPTV players reject the entire M3U document.
     metadata = attrs(extinf)
     logo = metadata.get("tvg-logo", "")
-    head = f'#EXTINF:-1 tvg-id="{channel_id}"'
+    head = f'#EXTINF:-1 tvg-id="{epg_id or channel_id}"'
     if logo:
         head += f' tvg-logo="{logo}"'
     safe_tvg_name = title.replace('"', "").strip()
@@ -421,6 +468,8 @@ def main():
             "area": {"c/RU"},
         }
 
+    apply_epg_ids(chosen)
+
     if len(chosen) < MIN_UNIQUE_CHANNELS:
         raise RuntimeError(
             f"Only {len(chosen)} unique eligible channels found; refusing to replace "
@@ -430,7 +479,9 @@ def main():
 
     output = [f'#EXTM3U x-tvg-url="{EPG_URL}" url-tvg="{EPG_URL}"']
     for channel_id, item in sorted(chosen.items(), key=lambda pair: (pair[1]["group"], pair[1]["title"].casefold())):
-        extinf = clean_extinf(item["extinf"], channel_id, item["group"], item["title"])
+        extinf = clean_extinf(
+            item["extinf"], channel_id, item["group"], item["title"], item.get("epg_id")
+        )
         output.extend((extinf, item["url"]))
 
     # Favourites are a convenience category; the main channel entries remain
@@ -438,7 +489,9 @@ def main():
     for channel_id, item in sorted(chosen.items(), key=lambda pair: pair[1]["title"].casefold()):
         if item["title"] in FAVOURITES:
             output.extend((
-                clean_extinf(item["extinf"], channel_id, "Избранное", item["title"]),
+                clean_extinf(
+                    item["extinf"], channel_id, "Избранное", item["title"], item.get("epg_id")
+                ),
                 item["url"],
             ))
 
