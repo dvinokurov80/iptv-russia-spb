@@ -22,6 +22,41 @@ ALLOWED_AREAS = {"c/RU", "s/RU-SPE", "s/RU-LEN"}
 REQUIRED_TIMEZONE = "Europe/Moscow"
 MIN_UNIQUE_CHANNELS = 30
 
+NAME_OVERRIDES = {
+    "Ani.ru": "Ани",
+    "BabyTime.ru": "Бэби Тайм",
+    "GulliGirl.ru": "Гулли Гёрл",
+    "CartoonClassics.ru": "Картун Классикс",
+    "15PlusMusic.ru": "15+ Музыка",
+    "BRIDGE.ru": "Бридж",
+    "BRIDGEDeluxe.ru": "Бридж Делюкс",
+    "BRIDGEClassic.ru": "Бридж Классик",
+    "BRIDGERock.ru": "Бридж Рок",
+    "BRIDGEHits.ru": "Бридж Хитс",
+    "VIVARussia.ru": "Вива Россия",
+    "DanceHits80.ru": "Дэнс Хитс 80",
+    "EuropaPlusTV.ru": "Европа Плюс ТВ",
+    "ClassicMusic.ru": "Классическая музыка",
+    "LiveMusicChannel.ru": "Лайв Мьюзик Ченнел HD",
+    "RussianMusicBox.ru": "Русский Музыкальный Бокс",
+    "SONGTVRussia.ru": "Сонг ТВ Россия",
+    "Domashniy.ru": "Домашний",
+    "Zoopark.ru": "Зоопарк",
+    "red.ru": "Ред HD",
+    "Nickelodeon.ru": "Nickelodeon Россия",
+    "STSkids.ru": "СТС Kids",
+    "NationalGeographicWild.ru": "National Geographic Wild Россия",
+    "NationalGeographic.ru": "National Geographic Россия",
+    "MuzykaLive.ru": "Музыка Live",
+    "StranaFM.ru": "Страна FM",
+    "FONMusic.ru": "ТНТ Music",
+    "VestiFM.ru": "Вести FM",
+    "RTDocumentary.ru": "RTД",
+    "OkkoPrajmSport.ru": "Okko Прайм Спорт",
+    "OkkoFutbol.ru": "Okko Футбол",
+    "Bollywood.ru": "Болливуд HD",
+}
+
 FAVOURITES = {
     "Первый канал", "Россия 1", "НТВ", "СТС", "ТНТ",
     "Пятница!", "Россия 24", "Матч ТВ",
@@ -212,7 +247,7 @@ def main():
             continue
 
         feed = matches[0]
-        title = display_name(extinf, meta, channel)
+        title = NAME_OVERRIDES.get(channel_id) or display_name(extinf, meta, channel)
         if not title:
             title = channel.get("name") or channel_id
 
