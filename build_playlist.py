@@ -178,8 +178,8 @@ def display_name(extinf, metadata, channel):
         channel.get("name") or "",
     ])
     def remove_quality(value):
-        value = re.sub(r"\\s*[\\[(](?:\\d{3,4}\\s*[pi]|4k|uhd|fhd|hd|sd)[\\])]\\s*$", "", value, flags=re.I)
-        return re.sub(r"\\s+\\d{3,4}\\s*[pi]\\s*$", "", value, flags=re.I).strip()
+        value = re.sub(r"\s*[\[(](?:\d{3,4}\s*[pi]|4k|uhd|fhd|hd|sd)[\])]\s*$", "", value, flags=re.I)
+        return re.sub(r"\s+\d{3,4}\s*[pi]\s*$", "", value, flags=re.I).strip()
     candidates = [remove_quality(item.strip()) for item in candidates if item and item.strip()]
     # If the channel metadata has a Russian/local-script name, use it.
     local_name = next((item for item in candidates if has_cyrillic(item)), None)
