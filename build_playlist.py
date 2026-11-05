@@ -68,30 +68,36 @@ FAVOURITES = {
 # nationwide broadcasters are grouped together; thematic channels get their
 # own category before the general fallback.
 CATEGORY_NAMES = {
+    # The playlist uses fewer, clearer groups than the upstream database.
     "news": "Общероссийские",
-    "sports": "Спорт",
+    "general": "Общероссийские",
     "music": "Музыка",
-    "movies": "Фильмы",
-    "series": "Сериалы",
+    "movies": "Фильмы и сериалы",
+    "series": "Фильмы и сериалы",
     "documentary": "Познавательные",
     "education": "Познавательные",
     "science": "Познавательные",
     "culture": "Познавательные",
     "travel": "Познавательные",
     "outdoor": "Познавательные",
-    "lifestyle": "Познавательные",
+    "lifestyle": "Развлекательные",
     "auto": "Познавательные",
     "cooking": "Познавательные",
-    "general": "Общероссийские",
-    "entertainment": "Общероссийские",
+    "entertainment": "Развлекательные",
+    "comedy": "Развлекательные",
+    "family": "Развлекательные",
 }
 
 CATEGORY_OVERRIDES = {
+    # Editorial overrides for channels whose upstream tags are too generic.
     "T24.ru": "Познавательные",
     "Nauka.ru": "Познавательные",
     "NationalGeographic.ru": "Познавательные",
     "NationalGeographicWild.ru": "Познавательные",
     "InvestigationDiscovery.ru": "Познавательные",
+    "NTVHit.ru": "Фильмы и сериалы",
+    "NTVSeries.ru": "Фильмы и сериалы",
+    "NTVStyle.ru": "Развлекательные",
 }
 
 CHILD_NAME_RE = re.compile(
@@ -102,12 +108,23 @@ RELIGIOUS_NAME_RE = re.compile(
     r"(^|[^а-я])(спас|союз|вера|надежда|православ|христиан|"
     r"миллет|ислам|мусульман)([^а-я]|$)", re.I
 )
+SPORTS_NAME_RE = re.compile(
+    r"(спорт|sport|матч!?|футбол|хоккей|баскетбол|теннис|"
+    r"бокс|единоборств|автоспорт|гонк|олимп)", re.I
+)
+FILM_SERIES_NAME_RE = re.compile(
+    r"(кино|кинозал|киносери|фильм|сериал|серия|cinema|movie|film|series|serial)", re.I
+)
 
 def is_excluded_channel(channel, title):
     tags = set(channel.get("categories") or [])
     if "kids" in tags or CHILD_NAME_RE.search(title or ""):
         return True
     if "religious" in tags or RELIGIOUS_NAME_RE.search(title or ""):
+        return True
+    # The user asked to remove sports channels entirely, not merely hide
+    # their former dedicated category.
+    if "sports" in tags or SPORTS_NAME_RE.search(title or ""):
         return True
     return False
 
@@ -205,29 +222,28 @@ def quality_score(value):
     progressive = 1 if match.group(2) == "p" else 0
     return height * 10 + progressive
 
-def classify(channel_id, categories, feed):
+def classify(channel_id, categories, feed, title=""):
     # Explicit editorial corrections take priority over imperfect source tags.
     if channel_id in CATEGORY_OVERRIDES:
         return CATEGORY_OVERRIDES[channel_id]
 
     tags = set(categories or [])
-    if "movies" in tags:
-        return "Фильмы"
+    # Names catch film/series channels whose source tags are missing or wrong.
+    if tags & {"movies", "series"} or FILM_SERIES_NAME_RE.search(title or ""):
+        return "Фильмы и сериалы"
     if tags & {"documentary", "education", "science", "culture", "travel",
-               "outdoor", "lifestyle", "auto", "cooking"}:
+               "outdoor", "auto", "cooking"}:
         return "Познавательные"
-    if "sports" in tags:
-        return "Спорт"
-    if "music" in tags:
+    if tags & {"music"}:
         return "Музыка"
-    if "series" in tags:
-        return "Сериалы"
+    if tags & {"entertainment", "comedy", "family", "lifestyle"}:
+        return "Развлекательные"
 
     areas = set(feed.get("broadcast_area") or [])
     if not (areas & {"c/RU"}):
         return "Санкт-Петербург и Ленобласть"
-    # News, general and entertainment broadcasters with nationwide coverage
-    # belong together instead of being scattered across miscellaneous groups.
+    # General and news broadcasters are the fallback; no movie, series or
+    # sports channels can reach this group after the checks above.
     return "Общероссийские"
 
 def feed_allowed(feed):
@@ -322,7 +338,7 @@ def main():
         if is_excluded_channel(channel, title):
             continue
 
-        group = classify(channel_id, channel.get("categories"), feed)
+        group = classify(channel_id, channel.get("categories"), feed, title)
         score = quality_score(feed.get("format"))
         candidate = {
             "channel_id": channel_id,
