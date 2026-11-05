@@ -200,6 +200,7 @@ def main():
             key = (channel_key, "Избранное")
             if key not in written:
                 written.add(key)
+                extinf = re.sub(r'(tvg-id="[^"@]+)@[^"]*"', r'\1"', extinf)
                 output.extend((set_group(extinf, "Избранное", title), url))
 
     if len(output) <= 1:
