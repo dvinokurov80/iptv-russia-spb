@@ -449,11 +449,9 @@ def classify(channel_id, categories, feed, title=""):
     if tags & {"entertainment", "comedy", "family", "lifestyle"}:
         return "Развлекательные"
 
-    areas = set(feed.get("broadcast_area") or [])
-    if not (areas & {"c/RU"}):
-        return "Санкт-Петербург и Ленобласть"
-    # General and news broadcasters are the fallback; no movie, series or
-    # sports channels can reach this group after the checks above.
+    # Keep the category list compact: uncategorized regional channels,
+    # including ЛенТВ24, go into the same general/news group as federal
+    # broadcasters rather than creating a one-channel regional category.
     return "Общероссийские"
 
 def feed_allowed(feed):
