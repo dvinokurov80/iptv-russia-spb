@@ -1,6 +1,10 @@
 name: Update IPTV playlist
 
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "playlist.m3u"
   workflow_dispatch:
   schedule:
     - cron: "17 3 * * *"
@@ -22,6 +26,22 @@ jobs:
 
       - name: Build playlist
         run: python build_playlist.py
+
+      - name: Validate playlist
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path("playlist.m3u")
+          data = p.read_text(encoding="utf-8")
+          assert data.startswith("#EXTM3U"), "Missing M3U header"
+          entries = re.findall(r"^#EXTINF:", data, re.M)
+          urls = [line for line in data.splitlines() if line.startswith(("http://", "https://"))]
+          assert entries, "Playlist contains no channels"
+          assert len(entries) == len(urls), f"EXTINF/URL mismatch: {len(entries)} vs {len(urls)}"
+          assert 'group-title="' in data, "No category tags found"
+          print(f"Validated {len(entries)} channel entries")
+          PY
 
       - name: Commit updated playlist
         run: |
