@@ -157,12 +157,14 @@ def main():
         metadata = attrs(extinf)
         source_name = clean_name(extinf, metadata)
         normalized_name = normalized(source_name)
-        title = None
-        for candidate, russian_title in FEDERAL_NAMES.items():
-            candidate_name = normalized(candidate)
-            if normalized_name == candidate_name or normalized_name.startswith(candidate_name + " "):
-                title = russian_title
-                break
+        title = FEDERAL_IDS.get(metadata.get("tvg-id", "").lower())
+        if not title:
+            # Try exact/leading name matches as a fallback for feeds without EPG IDs.
+            for candidate, russian_title in sorted(FEDERAL_NAMES.items(), key=lambda item: len(item[0]), reverse=True):
+                candidate_name = normalized(candidate)
+                if normalized_name == candidate_name or normalized_name.startswith(candidate_name + " "):
+                    title = russian_title
+                    break
         if title:
             selected.append((extinf, url, title, FEDERAL_GROUPS.get(title, "Общероссийские"), False))
 
