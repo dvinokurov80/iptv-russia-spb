@@ -199,6 +199,8 @@ def clean_extinf(extinf, channel_id, group, title):
     head = f'#EXTINF:-1 tvg-id="{channel_id}"'
     if logo:
         head += f' tvg-logo="{logo}"'
+    safe_tvg_name = title.replace('"', "").strip()
+    head += f' tvg-name="{safe_tvg_name}"'
     head += f' group-title="{group}"'
     return head + "," + title
 
