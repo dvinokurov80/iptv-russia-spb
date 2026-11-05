@@ -1,110 +1,56 @@
 #!/usr/bin/env python3
-"""Build a categorized Russia + Saint Petersburg IPTV playlist."""
+"""Build a broad free-to-access Russian IPTV playlist for Moscow time."""
 
 from urllib.request import Request, urlopen
 from datetime import datetime, timezone
 from pathlib import Path
+import json
 import re
 
-NATIONAL_URL = "https://iptv-org.github.io/iptv/countries/ru.m3u"
-SPB_URL = "https://iptv-org.github.io/iptv/subdivisions/ru-spe.m3u"
+SOURCES = {
+    "national": "https://iptv-org.github.io/iptv/countries/ru.m3u",
+    "spb": "https://iptv-org.github.io/iptv/subdivisions/ru-spe.m3u",
+    "len": "https://iptv-org.github.io/iptv/subdivisions/ru-len.m3u",
+}
+API = "https://iptv-org.github.io/api"
 EPG_URL = "http://epg.one/ru.xml.gz"
-# Public HLS source listed as playable by an IPTV stream directory.
-# The provider may apply geographic restrictions outside Russia.
-FIFTH_CHANNEL_FALLBACK = "https://zabava-htlive.cdn.ngenix.net/hls/CH_5TV/variant.m3u8"
 OUTPUT = Path("playlist.m3u")
 
-FEDERAL_IDS = {
-    "channelone.ru": "Первый канал",
-    "russia1.ru": "Россия 1",
-    "russia24.ru": "Россия 24",
-    "russiak.ru": "Россия Культура",
-    "ntv.ru": "НТВ",
-    "rentv.ru": "РЕН ТВ",
-    "sts.ru": "СТС",
-    "tnt.ru": "ТНТ",
-    "tv3.ru": "ТВ-3",
-    "friday.ru": "Пятница!",
-    "muztv.ru": "МУЗ-ТВ",
-    "domashniy.ru": "Домашний",
-    "tvcentr.ru": "ТВ Центр",
-    "zvezda.ru": "Звезда",
-    "otr.ru": "ОТР",
-    "spas.ru": "Спас",
-    "karusel.ru": "Карусель",
-    "match.ru": "Матч ТВ",
-    "matchtv.ru": "Матч ТВ",
-    "mir.ru": "Мир",
-    "mir24.ru": "Мир 24",
-    "rbc.ru": "РБК",
-    "5kanal.ru": "Пятый канал",
-    "channel5.ru": "Пятый канал",
-    "2x2.ru": "2x2",
-}
-FEDERAL_NAMES = {
-    "первый канал": "Первый канал",
-    "россия 1": "Россия 1",
-    "россия 24": "Россия 24",
-    "россия культура": "Россия Культура",
-    "культура": "Россия Культура",
-    "нтв": "НТВ",
-    "рен тв": "РЕН ТВ",
-    "рен-тв": "РЕН ТВ",
-    "стс": "СТС",
-    "тнт": "ТНТ",
-    "пятница": "Пятница!",
-    "домашний": "Домашний",
-    "тв центр": "ТВ Центр",
-    "твц": "ТВ Центр",
-    "звезда": "Звезда",
-    "отр": "ОТР",
-    "спас": "Спас",
-    "карусель": "Карусель",
-    "мир": "Мир",
-    "мир 24": "Мир 24",
-    "рбк": "РБК",
-    "пятый канал": "Пятый канал",
-    "петербург 5 канал": "Пятый канал",
-    "матч": "Матч ТВ",
-    "матч тв": "Матч ТВ",
-    "муз тв": "МУЗ-ТВ",
-    "муз-тв": "МУЗ-ТВ",
-    "тв 3": "ТВ-3",
+# Only nationwide feeds and feeds explicitly assigned to Saint Petersburg
+# or Leningrad Oblast are accepted. Every accepted feed must be Moscow-time.
+ALLOWED_AREAS = {"c/RU", "s/RU-SPE", "s/RU-LEN"}
+REQUIRED_TIMEZONE = "Europe/Moscow"
+MIN_UNIQUE_CHANNELS = 30
+
+FAVOURITES = {
+    "Первый канал", "Россия 1", "НТВ", "СТС", "ТНТ",
+    "Пятница!", "Россия 24", "Матч ТВ",
 }
 
-FEDERAL_GROUPS = {
-    "Первый канал": "Развлекательные",
-    "Россия 1": "Развлекательные",
-    "Россия 24": "Новости",
-    "Россия Культура": "Познавательные",
-    "НТВ": "Развлекательные",
-    "РЕН ТВ": "Познавательные",
-    "СТС": "Развлекательные",
-    "ТНТ": "Развлекательные",
-    "Пятница!": "Развлекательные",
-    "Домашний": "Развлекательные",
-    "ТВ Центр": "Новости",
-    "Звезда": "Познавательные",
-    "ОТР": "Познавательные",
-    "Спас": "Познавательные",
-    "Карусель": "Детские",
-    "Мир": "Развлекательные",
-    "Мир 24": "Новости",
-    "РБК": "Новости",
-    "Пятый канал": "Новости",
-    "Матч ТВ": "Спорт",
-    "МУЗ-ТВ": "Музыка",
-    "ТВ-3": "Фильмы",
-    "2x2": "Развлекательные",
+CATEGORY_NAMES = {
+    "news": "Новости",
+    "sports": "Спорт",
+    "kids": "Детские",
+    "animation": "Детские",
+    "music": "Музыка",
+    "movies": "Фильмы",
+    "series": "Сериалы",
+    "entertainment": "Развлекательные",
+    "documentary": "Познавательные",
+    "education": "Познавательные",
+    "science": "Познавательные",
+    "lifestyle": "Развлекательные",
+    "general": "Развлекательные",
+    "religious": "Познавательные",
 }
-FAVOURITES = {"Первый канал", "Россия 1", "НТВ", "СТС", "ТНТ", "Пятница!", "Россия 24", "Матч ТВ"}
-SPB_NAMES = {"sanktpeterburg.ru": "Телеканал Санкт-Петербург"}
-BAD_MARKERS = ("[geo-blocked]", "[not 24/7]", "[offline]", "[broken]")
 
-def download(url):
-    request = Request(url, headers={"User-Agent": "iptv-russia-spb-playlist/1.0"})
-    with urlopen(request, timeout=45) as response:
+def download_text(url):
+    request = Request(url, headers={"User-Agent": "iptv-russia-spb-playlist/2.0"})
+    with urlopen(request, timeout=60) as response:
         return response.read().decode("utf-8-sig", errors="replace")
+
+def download_json(name):
+    return json.loads(download_text(f"{API}/{name}.json"))
 
 def parse_m3u(text):
     pending = None
@@ -121,100 +67,154 @@ def parse_m3u(text):
 def attrs(extinf):
     return dict(re.findall(r'([\w-]+)="([^"]*)"', extinf))
 
-def clean_name(extinf, metadata):
+def display_name(extinf, metadata):
     return metadata.get("tvg-name") or extinf.rsplit(",", 1)[-1].strip()
 
-def normalized(value):
-    value = value.lower().replace("ё", "е")
-    value = re.sub(r"\[[^]]*\]", "", value)
-    value = re.sub(r"[^0-9a-zа-я]+", " ", value)
-    return " ".join(value.split())
-
-def infer_group(name, source_group=""):
-    text = normalized(name + " " + source_group)
-    rules = [
-        ("Музыка", ("муз", "music")),
-        ("Фильмы", ("кино", "фильм", "movie", "cinema", "сериал")),
-        ("Спорт", ("спорт", "sport", "матч", "футбол", "хоккей")),
-        ("Новости", ("новост", "news", "информац")),
-        ("Познавательные", ("познав", "науч", "документ", "образоват", "science", "education")),
-        ("Детские", ("детск", "мульт", "kids", "children")),
-        ("Развлекательные", ("развлек", "шоу", "юмор", "entertain")),
-    ]
-    for group, words in rules:
-        if any(word in text for word in words):
-            return group
-    return "Санкт-Петербург"
-
-def set_group(extinf, group, title):
-    head, comma, display = extinf.partition(",")
+def clean_extinf(extinf, channel_id, group, title):
+    head, comma, _ = extinf.partition(",")
     head = re.sub(r'\s+group-title="[^"]*"', "", head)
-    head += ' group-title="' + group + '"'
-    return head + comma + title
+    if re.search(r'tvg-id="[^"]*"', head):
+        head = re.sub(r'tvg-id="[^"]*"', f'tvg-id="{channel_id}"', head)
+    else:
+        head += f' tvg-id="{channel_id}"'
+    head += f' group-title="{group}"'
+    return head + "," + title
+
+def quality_score(value):
+    match = re.search(r'(\d{3,4})\s*([pi])?', str(value or "").lower())
+    if not match:
+        return 0
+    height = int(match.group(1))
+    progressive = 1 if match.group(2) == "p" else 0
+    return height * 10 + progressive
+
+def classify(categories):
+    # Prefer a specific category if a channel has several tags.
+    priority = [
+        "news", "sports", "kids", "animation", "music", "movies", "series",
+        "documentary", "education", "science", "entertainment", "lifestyle",
+        "general", "religious",
+    ]
+    tags = set(categories or [])
+    for tag in priority:
+        if tag in tags:
+            return CATEGORY_NAMES[tag]
+    return "Развлекательные"
+
+def feed_allowed(feed):
+    areas = set(feed.get("broadcast_area") or [])
+    zones = set(feed.get("timezones") or [])
+    # Reject multi-time-zone feeds: they cannot guarantee Moscow-time scheduling.
+    return bool(areas & ALLOWED_AREAS) and zones == {REQUIRED_TIMEZONE}
 
 def main():
-    national = list(parse_m3u(download(NATIONAL_URL)))
-    spb = list(parse_m3u(download(SPB_URL)))
-    print("Loaded {} national and {} Saint Petersburg source entries".format(len(national), len(spb)))
-    output = ['#EXTM3U x-tvg-url="' + EPG_URL + '" url-tvg="' + EPG_URL + '"']
-    selected = []
+    channels = {item["id"]: item for item in download_json("channels")}
+    feeds_data = download_json("feeds")
+    feeds = {}
+    for item in feeds_data:
+        feeds[(item.get("channel"), item.get("id"))] = item
 
-    for extinf, url in national:
-        if any(marker in (extinf + " " + url).lower() for marker in BAD_MARKERS):
+    eligible_by_channel = {}
+    for (channel_id, feed_id), feed in feeds.items():
+        if channel_id and feed_allowed(feed):
+            eligible_by_channel.setdefault(channel_id, []).append(feed)
+
+    source_entries = []
+    for label, url in SOURCES.items():
+        parsed = list(parse_m3u(download_text(url)))
+        print(f"Loaded {len(parsed)} entries from {label}")
+        source_entries.extend(parsed)
+
+    # Build one best-quality entry per channel. No regional feeds outside
+    # Saint Petersburg/Leningrad and no feeds with non-Moscow time zones.
+    chosen = {}
+    skipped_no_metadata = 0
+    skipped_time_area = 0
+
+    for extinf, url in source_entries:
+        if not url.startswith(("http://", "https://")):
             continue
-        metadata = attrs(extinf)
-        source_name = clean_name(extinf, metadata)
-        normalized_name = normalized(source_name)
-        channel_id = metadata.get("tvg-id", "").lower().split("@", 1)[0]
-        title = FEDERAL_IDS.get(channel_id)
+        if any(marker in (extinf + " " + url).lower()
+               for marker in ("[geo-blocked]", "[not 24/7]", "[offline]", "[broken]")):
+            continue
+
+        meta = attrs(extinf)
+        raw_id = meta.get("tvg-id", "").strip()
+        if not raw_id:
+            skipped_no_metadata += 1
+            continue
+
+        channel_id, separator, feed_id = raw_id.partition("@")
+        channel = channels.get(channel_id)
+        if not channel or channel.get("country") != "RU" or channel.get("is_nsfw"):
+            skipped_no_metadata += 1
+            continue
+
+        eligible = eligible_by_channel.get(channel_id, [])
+        if separator:
+            matches = [feed for feed in eligible
+                       if str(feed.get("id", "")).lower() == feed_id.lower()]
+        else:
+            matches = [feed for feed in eligible if feed.get("is_main")]
+            if not matches and len(eligible) == 1:
+                matches = eligible
+
+        if not matches:
+            skipped_time_area += 1
+            continue
+
+        feed = matches[0]
+        title = display_name(extinf, meta)
         if not title:
-            # Try exact/leading name matches as a fallback for feeds without EPG IDs.
-            for candidate, russian_title in sorted(FEDERAL_NAMES.items(), key=lambda item: len(item[0]), reverse=True):
-                candidate_name = normalized(candidate)
-                if normalized_name == candidate_name or normalized_name.startswith(candidate_name + " "):
-                    title = russian_title
-                    break
-        if title:
-            if title == "Пятый канал":
-                url = FIFTH_CHANNEL_FALLBACK
-            selected.append((extinf, url, title, FEDERAL_GROUPS.get(title, "Общероссийские"), False))
+            title = channel.get("name") or channel_id
 
-    for extinf, url in spb:
-        if any(marker in (extinf + " " + url).lower() for marker in BAD_MARKERS):
-            continue
-        metadata = attrs(extinf)
-        channel_id = metadata.get("tvg-id", "").lower().split("@", 1)[0]
-        title = SPB_NAMES.get(channel_id, clean_name(extinf, metadata))
-        group = infer_group(title, metadata.get("group-title", ""))
-        selected.append((extinf, url, title, group, True))
+        # Use channel categories from the maintained database, not a short
+        # hand-written whitelist of channel names.
+        group = classify(channel.get("categories"))
+        score = quality_score(feed.get("format"))
+        candidate = {
+            "channel_id": channel_id,
+            "extinf": extinf,
+            "url": url,
+            "title": title,
+            "group": group,
+            "score": score,
+            "main": bool(feed.get("is_main")),
+            "area": set(feed.get("broadcast_area") or []),
+        }
+        current = chosen.get(channel_id)
+        if current is None or (candidate["score"], candidate["main"]) > (current["score"], current["main"]):
+            chosen[channel_id] = candidate
 
-    written = set()
-    for extinf, url, title, group, is_spb in selected:
-        metadata = attrs(extinf)
-        channel_key = (metadata.get("tvg-id", "").lower().split("@", 1)[0] or normalized(title))
-        key = (channel_key, group)
-        if key not in written:
-            written.add(key)
-            extinf = re.sub(r'(tvg-id="[^"@]+)@[^"]*"', r'\1"', extinf)
-            output.extend((set_group(extinf, group, title), url))
+    if len(chosen) < MIN_UNIQUE_CHANNELS:
+        raise RuntimeError(
+            f"Only {len(chosen)} unique eligible channels found; refusing to replace "
+            f"the published playlist. Check source metadata and Moscow-time filters. "
+            f"Skipped for area/time-zone mismatch: {skipped_time_area}."
+        )
 
-    for extinf, url, title, group, is_spb in selected:
-        if not is_spb and title in FAVOURITES:
-            metadata = attrs(extinf)
-            channel_key = (metadata.get("tvg-id", "").lower().split("@", 1)[0] or normalized(title))
-            key = (channel_key, "Избранное")
-            if key not in written:
-                written.add(key)
-                extinf = re.sub(r'(tvg-id="[^"@]+)@[^"]*"', r'\1"', extinf)
-                output.extend((set_group(extinf, "Избранное", title), url))
+    output = [f'#EXTM3U x-tvg-url="{EPG_URL}" url-tvg="{EPG_URL}"']
+    for channel_id, item in sorted(chosen.items(), key=lambda pair: (pair[1]["group"], pair[1]["title"].casefold())):
+        extinf = clean_extinf(item["extinf"], channel_id, item["group"], item["title"])
+        output.extend((extinf, item["url"]))
 
-    if len(output) <= 1:
-        raise RuntimeError("No channels selected; refusing to publish an empty playlist.")
+    # Favourites are a convenience category; the main channel entries remain
+    # unique and are not duplicated in different quality variants.
+    for channel_id, item in sorted(chosen.items(), key=lambda pair: pair[1]["title"].casefold()):
+        if item["title"] in FAVOURITES:
+            output.extend((
+                clean_extinf(item["extinf"], channel_id, "Избранное", item["title"]),
+                item["url"],
+            ))
 
     OUTPUT.write_text("\n".join(output) + "\n", encoding="utf-8")
-    print("Generated {}: {} entries at {}".format(
-        OUTPUT, (len(output) - 1) // 2, datetime.now(timezone.utc).isoformat()
-    ))
+    print(
+        f"Generated {len(chosen)} unique channels "
+        f"({len(output[1:]) // 2} playlist entries); "
+        f"skipped without metadata: {skipped_no_metadata}; "
+        f"skipped by area/time zone: {skipped_time_area}; "
+        f"at {datetime.now(timezone.utc).isoformat()}"
+    )
 
 if __name__ == "__main__":
     main()
