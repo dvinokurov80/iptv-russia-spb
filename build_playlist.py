@@ -363,6 +363,23 @@ def main():
         if current is None or (candidate["score"], candidate["main"]) > (current["score"], current["main"]):
             chosen[channel_id] = candidate
 
+    # NTV Style is confirmed as a Russian, Moscow-time channel with an
+    # official NTV CDN stream, but some upstream playlist mirrors omit tvg-id.
+    # Keep this single reviewed fallback so it is not lost during discovery.
+    if "NTVStyle.ru" not in chosen:
+        channel = channels.get("NTVStyle.ru")
+        if channel and not channel.get("closed") and not channel.get("is_nsfw"):
+            chosen["NTVStyle.ru"] = {
+                "channel_id": "NTVStyle.ru",
+                "extinf": '#EXTINF:-1 tvg-id="NTVStyle.ru@SD",НТВ Стиль',
+                "url": "https://cdn.ntv.ru/th_style/playlist.m3u8",
+                "title": "НТВ Стиль",
+                "group": "Развлекательные",
+                "score": 5760,
+                "main": True,
+                "area": {"c/RU"},
+            }
+
     if len(chosen) < MIN_UNIQUE_CHANNELS:
         raise RuntimeError(
             f"Only {len(chosen)} unique eligible channels found; refusing to replace "
