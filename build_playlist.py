@@ -8,7 +8,7 @@ import re
 
 NATIONAL_URL = "https://iptv-org.github.io/iptv/countries/ru.m3u"
 SPB_URL = "https://iptv-org.github.io/iptv/subdivisions/ru-spe.m3u"
-EPG_URL = "http://epg.it999.ru/ru.xml.gz"
+EPG_URL = "http://epg.one/ru.xml.gz"
 OUTPUT = Path("playlist.m3u")
 
 FEDERAL_IDS = {
