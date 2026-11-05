@@ -2,7 +2,7 @@ name: Update IPTV playlist
 
 concurrency:
   group: update-iptv-playlist
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 on:
   push:
@@ -64,5 +64,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Update IPTV playlist"
-          git pull --rebase origin main
+          git pull --rebase -X theirs origin main
           git push
