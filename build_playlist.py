@@ -153,7 +153,7 @@ def main():
     national = list(parse_m3u(download(NATIONAL_URL)))
     spb = list(parse_m3u(download(SPB_URL)))
     print("Loaded {} national and {} Saint Petersburg source entries".format(len(national), len(spb)))
-    output = ['#EXTM3U x-tvg-url="' + EPG_URL + '"']
+    output = ['#EXTM3U x-tvg-url="' + EPG_URL + '" url-tvg="' + EPG_URL + '"']
     selected = []
 
     for extinf, url in national:
