@@ -168,7 +168,7 @@ def attrs(extinf):
 
 def normalize_epg_name(value):
     value = re.sub(
-        r"\\s*(?:\\b(?:HD|FHD|UHD|SD|4K)\\b|\\d{3,4}\\s*[pi])\\s*$",
+        r"\s*(?:\b(?:HD|FHD|UHD|SD|4K)\b|\d{3,4}\s*[pi])\s*$",
         "", value or "", flags=re.I
     )
     return re.sub(r"[^0-9a-zа-яё]+", "", value.casefold())
