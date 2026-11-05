@@ -167,7 +167,11 @@ def attrs(extinf):
     return dict(re.findall(r'([\w-]+)="([^"]*)"', extinf))
 
 def normalize_epg_name(value):
-    return re.sub(r"[^0-9a-zа-яё]+", "", (value or "").casefold())
+    value = re.sub(
+        r"\\s*(?:\\b(?:HD|FHD|UHD|SD|4K)\\b|\\d{3,4}\\s*[pi])\\s*$",
+        "", value or "", flags=re.I
+    )
+    return re.sub(r"[^0-9a-zа-яё]+", "", value.casefold())
 
 def apply_epg_ids(chosen):
     """Match playlist channels to IDs with actual programmes in the Russian XMLTV guide."""
@@ -179,22 +183,24 @@ def apply_epg_ids(chosen):
         }
         names_by_id = {}
         for node in root.findall("channel"):
-            channel_id = node.get("id")
-            if not channel_id or channel_id not in programme_ids:
+            epg_id = node.get("id")
+            if not epg_id or epg_id not in programme_ids:
                 continue
             for display_name in node.findall("display-name"):
                 name = normalize_epg_name(display_name.text or "")
                 if name:
-                    names_by_id.setdefault(name, set()).add(channel_id)
+                    names_by_id.setdefault(name, set()).add(epg_id)
 
         exact = 0
         by_name = 0
         unmatched = 0
         used_ids = set()
-        name_counts = {}
-        for item in chosen.values():
-            name = normalize_epg_name(item.get("title"))
-            name_counts[name] = name_counts.get(name, 0) + 1
+        alias_owners = {}
+        for channel_id, item in chosen.items():
+            aliases = item.get("epg_names") or [item.get("title", "")]
+            normalized = {normalize_epg_name(alias) for alias in aliases}
+            for name in normalized - {""}:
+                alias_owners.setdefault(name, set()).add(channel_id)
 
         for channel_id, item in chosen.items():
             if channel_id in programme_ids:
@@ -205,9 +211,14 @@ def apply_epg_ids(chosen):
         for channel_id, item in chosen.items():
             if "epg_id" in item:
                 continue
-            name = normalize_epg_name(item.get("title"))
-            candidates = names_by_id.get(name, set()) - used_ids
-            if name_counts.get(name) == 1 and len(candidates) == 1:
+            aliases = item.get("epg_names") or [item.get("title", "")]
+            candidates = set()
+            for alias in aliases:
+                name = normalize_epg_name(alias)
+                if name and alias_owners.get(name) == {channel_id}:
+                    candidates.update(names_by_id.get(name, set()))
+            candidates -= used_ids
+            if len(candidates) == 1:
                 item["epg_id"] = next(iter(candidates))
                 used_ids.add(item["epg_id"])
                 by_name += 1
@@ -216,7 +227,7 @@ def apply_epg_ids(chosen):
                 unmatched += 1
 
         print(
-            f"EPG matching: {exact} exact IDs, {by_name} unique name matches, "
+            f"EPG matching: {exact} exact IDs, {by_name} unique alias matches, "
             f"{unmatched} without a confirmed programme ID "
             f"(guide contains {len(programme_ids)} channel IDs)"
         )
@@ -456,11 +467,16 @@ def main():
 
         group = classify(channel_id, channel.get("categories"), feed, title)
         score = quality_score(feed.get("format"))
+        epg_names = [
+            title, meta.get("tvg-name", ""), extinf.rsplit(",", 1)[-1].strip(),
+            channel.get("name", ""), channel.get("native_name", ""),
+        ] + (channel.get("alt_names") or [])
         candidate = {
             "channel_id": channel_id,
             "extinf": extinf,
             "url": url,
             "title": title,
+            "epg_names": list(dict.fromkeys(name for name in epg_names if name)),
             "group": group,
             "score": score,
             "main": bool(feed.get("is_main")),
@@ -479,6 +495,7 @@ def main():
             "extinf": '#EXTINF:-1 tvg-id="NTVStyle.ru@SD",НТВ Стиль',
             "url": "https://cdn.ntv.ru/th_style/playlist.m3u8",
             "title": "НТВ Стиль",
+            "epg_names": ["НТВ Стиль", "NTV Style", "NTV Style HD"],
             "group": "Развлекательные",
             "score": 5760,
             "main": True,
