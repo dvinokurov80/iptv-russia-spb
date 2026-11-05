@@ -182,12 +182,22 @@ def apply_epg_ids(chosen):
             if node.get("channel")
         }
         names_by_id = {}
+        display_names_by_id = {}
         for node in root.findall("channel"):
             epg_id = node.get("id")
             if not epg_id or epg_id not in programme_ids:
                 continue
-            for display_name in node.findall("display-name"):
-                name = normalize_epg_name(display_name.text or "")
+            display_names = [
+                (child.text.strip(), child.attrib.get("lang", ""))
+                for child in node.findall("display-name") if child.text and child.text.strip()
+            ]
+            if display_names:
+                display_names_by_id[epg_id] = next(
+                    (name for name, lang in display_names if lang == "ru"),
+                    display_names[0][0]
+                )
+            for display_name, _lang in display_names:
+                name = normalize_epg_name(display_name)
                 if name:
                     names_by_id.setdefault(name, set()).add(epg_id)
 
@@ -205,6 +215,7 @@ def apply_epg_ids(chosen):
         for channel_id, item in chosen.items():
             if channel_id in programme_ids:
                 item["epg_id"] = channel_id
+                item["epg_name"] = display_names_by_id.get(channel_id, item.get("title", ""))
                 used_ids.add(channel_id)
                 exact += 1
 
@@ -220,10 +231,12 @@ def apply_epg_ids(chosen):
             candidates -= used_ids
             if len(candidates) == 1:
                 item["epg_id"] = next(iter(candidates))
+                item["epg_name"] = display_names_by_id.get(item["epg_id"], item.get("title", ""))
                 used_ids.add(item["epg_id"])
                 by_name += 1
             else:
                 item["epg_id"] = channel_id
+                item["epg_name"] = item.get("title", "")
                 unmatched += 1
 
         print(
@@ -265,7 +278,7 @@ def display_name(extinf, metadata, channel):
     canonical = channel.get("name") or (candidates[0] if candidates else channel.get("id", ""))
     return remove_quality(canonical.strip())
 
-def clean_extinf(extinf, channel_id, group, title, epg_id=None):
+def clean_extinf(extinf, channel_id, group, title, epg_id=None, epg_name=None):
     # Rebuild the attribute list instead of carrying arbitrary source attributes.
     # Some upstream entries contain malformed/unclosed http-user-agent quotes,
     # which can make IPTV players reject the entire M3U document.
@@ -274,7 +287,7 @@ def clean_extinf(extinf, channel_id, group, title, epg_id=None):
     head = f'#EXTINF:-1 tvg-id="{epg_id or channel_id}"'
     if logo:
         head += f' tvg-logo="{logo}"'
-    safe_tvg_name = title.replace('"', "").strip()
+    safe_tvg_name = (epg_name or title).replace('"', "").strip()
     head += f' tvg-name="{safe_tvg_name}"'
     head += f' group-title="{group}"'
     return head + "," + title
@@ -514,7 +527,8 @@ def main():
     output = [f'#EXTM3U x-tvg-url="{EPG_URL}" url-tvg="{EPG_URL}"']
     for channel_id, item in sorted(chosen.items(), key=lambda pair: (pair[1]["group"], pair[1]["title"].casefold())):
         extinf = clean_extinf(
-            item["extinf"], channel_id, item["group"], item["title"], item.get("epg_id")
+            item["extinf"], channel_id, item["group"], item["title"],
+            item.get("epg_id"), item.get("epg_name")
         )
         output.extend((extinf, item["url"]))
 
@@ -524,7 +538,8 @@ def main():
         if item["title"] in FAVOURITES:
             output.extend((
                 clean_extinf(
-                    item["extinf"], channel_id, "Избранное", item["title"], item.get("epg_id")
+                    item["extinf"], channel_id, "Избранное", item["title"],
+                    item.get("epg_id"), item.get("epg_name")
                 ),
                 item["url"],
             ))
