@@ -46,35 +46,35 @@ EPG_NAME_ALIASES = {
 }
 
 NAME_OVERRIDES = {
-    "Ani.ru": "Ани",
+    "Ani.ru": "Ani",
     "Nauka.ru": "Наука 2.0",
     "InvestigationDiscovery.ru": "Investigation Discovery",
     "BabyTime.ru": "Бэби Тайм",
     "GulliGirl.ru": "Гулли Гёрл",
     "CartoonClassics.ru": "Картун Классикс",
-    "15PlusMusic.ru": "15+ Музыка",
-    "BRIDGE.ru": "Бридж",
-    "BRIDGEDeluxe.ru": "Бридж Делюкс",
-    "BRIDGEClassic.ru": "Бридж Классик",
-    "BRIDGERock.ru": "Бридж Рок",
-    "BRIDGEHits.ru": "Бридж Хитс",
-    "VIVARussia.ru": "Вива Россия",
-    "DanceHits80.ru": "Дэнс Хитс 80",
-    "EuropaPlusTV.ru": "Европа Плюс ТВ",
-    "ClassicMusic.ru": "Классическая музыка",
+    "15PlusMusic.ru": "15+ Music",
+    "BRIDGE.ru": "BRIDGE TV",
+    "BRIDGEDeluxe.ru": "BRIDGE DELUXE",
+    "BRIDGEClassic.ru": "BRIDGE CLASSIC",
+    "BRIDGERock.ru": "BRIDGE ROCK",
+    "BRIDGEHits.ru": "BRIDGE HITS",
+    "VIVARussia.ru": "VIVA Russia",
+    "DanceHits80.ru": "DanceHits80",
+    "EuropaPlusTV.ru": "Europa Plus TV",
+    "ClassicMusic.ru": "Classic Music",
     "LiveMusicChannel.ru": "Лайв Мьюзик Ченнел HD",
-    "RussianMusicBox.ru": "Русский Музыкальный Бокс",
-    "SONGTVRussia.ru": "Сонг ТВ Россия",
+    "RussianMusicBox.ru": "Russian Music Box",
+    "SONGTVRussia.ru": "SONG TV Russia",
     "Domashniy.ru": "Домашний",
     "Zoopark.ru": "Зоопарк",
-    "red.ru": "Ред HD",
-    "Nickelodeon.ru": "Nickelodeon Россия",
+    "red.ru": ".red",
+    "Nickelodeon.ru": "Nickelodeon",
     "STSkids.ru": "СТС Kids",
-    "NationalGeographicWild.ru": "National Geographic Wild Россия",
-    "NationalGeographic.ru": "National Geographic Россия",
+    "NationalGeographicWild.ru": "National Geographic Wild",
+    "NationalGeographic.ru": "National Geographic",
     "MuzykaLive.ru": "Музыка Live",
     "StranaFM.ru": "Страна FM",
-    "FONMusic.ru": "ТНТ Music",
+    "FONMusic.ru": "FON MUSIC",
     "VestiFM.ru": "Вести FM",
     "RTDocumentary.ru": "RTД",
     "OkkoPrajmSport.ru": "Okko Прайм Спорт",
@@ -303,12 +303,9 @@ def display_name(extinf, metadata, channel):
         value = re.sub(r"\s*[\[(](?:\d{3,4}\s*[pi]|4k|uhd|fhd|hd|sd)[\])]\s*$", "", value, flags=re.I)
         return re.sub(r"\s+\d{3,4}\s*[pi]\s*$", "", value, flags=re.I).strip()
     candidates = [remove_quality(item.strip()) for item in candidates if item and item.strip()]
-    # If the channel metadata has a Russian/local-script name, use it.
-    local_name = next((item for item in candidates if has_cyrillic(item)), None)
-    if local_name:
-        return local_name
-    # No local-script name: use the broadcaster's canonical database name
-    # rather than inventing a Russian transliteration.
+    # The channel database's canonical name is the primary display name.
+    # Do not replace a Latin-script broadcaster name with a Cyrillic alias:
+    # the user explicitly prefers official English names to stay in English.
     canonical = channel.get("name") or (candidates[0] if candidates else channel.get("id", ""))
     return remove_quality(canonical.strip())
 
