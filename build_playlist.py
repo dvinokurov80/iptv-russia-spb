@@ -10,6 +10,8 @@ import re
 SOURCES = {
     "national": "https://iptv-org.github.io/iptv/countries/ru.m3u",
     "ntv": "https://raw.githubusercontent.com/iptv-org/iptv/master/streams/ru_ntv.m3u",
+    "community_ngrch": "https://raw.githubusercontent.com/ngrch/iptv/main/ru.m3u",
+    "community_gdydg": "https://raw.githubusercontent.com/gdydg/iptv/main/ru.m3u",
     "spb": "https://iptv-org.github.io/iptv/subdivisions/ru-spe.m3u",
     "len": "https://iptv-org.github.io/iptv/subdivisions/ru-len.m3u",
 }
