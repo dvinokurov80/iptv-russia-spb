@@ -101,12 +101,22 @@ def display_name(extinf, metadata, channel):
         extinf.rsplit(",", 1)[-1].strip(),
         channel.get("name") or "",
     ])
-    title = next((item.strip() for item in candidates if has_cyrillic(item)), "")
+
+    def remove_quality(value):
+        value = re.sub(r"\s*[\[(](?:\d{3,4}\s*[pi]|4k|uhd|fhd|hd|sd)[\])]\s*$", "", value, flags=re.I)
+        return re.sub(r"\s+\d{3,4}\s*[pi]\s*$", "", value, flags=re.I).strip()
+
+    candidates = [remove_quality(item.strip()) for item in candidates if item and item.strip()]
+    title = next((item for item in candidates if has_cyrillic(item)), "")
     if not title:
-        title = next((item.strip() for item in candidates if item.strip()), channel.get("id", ""))
-        title = transliterate_to_russian(title)
-    title = re.sub(r"\s*[\[(](?:\d{3,4}\s*[pi]|4k|uhd|fhd|hd|sd)[\])]\s*$", "", title, flags=re.I)
-    return title.strip()
+        title = next(iter(candidates), channel.get("id", ""))
+        title = transliterate_to_russian(title).title()
+        # Restore common broadcast abbreviations after transliteration.
+        title = re.sub(r"\bТв\b", "ТВ", title)
+        title = re.sub(r"\bХд\b", "HD", title)
+        title = re.sub(r"\bФм\b", "FM", title)
+        title = re.sub(r"\bРу\b", "RU", title)
+    return remove_quality(title)
 
 def clean_extinf(extinf, channel_id, group, title):
     head, comma, _ = extinf.partition(",")
