@@ -24,6 +24,8 @@ MIN_UNIQUE_CHANNELS = 30
 
 NAME_OVERRIDES = {
     "Ani.ru": "Ани",
+    "Nauka.ru": "Наука 2.0",
+    "InvestigationDiscovery.ru": "Investigation Discovery",
     "BabyTime.ru": "Бэби Тайм",
     "GulliGirl.ru": "Гулли Гёрл",
     "CartoonClassics.ru": "Картун Классикс",
@@ -62,22 +64,52 @@ FAVOURITES = {
     "Пятница!", "Россия 24", "Матч ТВ",
 }
 
+# Categories are deliberately broad and user-facing. General federal and
+# nationwide broadcasters are grouped together; thematic channels get their
+# own category before the general fallback.
 CATEGORY_NAMES = {
-    "news": "Новости",
+    "news": "Общероссийские",
     "sports": "Спорт",
-    "kids": "Детские",
-    "animation": "Детские",
     "music": "Музыка",
     "movies": "Фильмы",
     "series": "Сериалы",
-    "entertainment": "Развлекательные",
     "documentary": "Познавательные",
     "education": "Познавательные",
     "science": "Познавательные",
-    "lifestyle": "Развлекательные",
-    "general": "Развлекательные",
-    "religious": "Познавательные",
+    "culture": "Познавательные",
+    "travel": "Познавательные",
+    "outdoor": "Познавательные",
+    "lifestyle": "Познавательные",
+    "auto": "Познавательные",
+    "cooking": "Познавательные",
+    "general": "Общероссийские",
+    "entertainment": "Общероссийские",
 }
+
+CATEGORY_OVERRIDES = {
+    "T24.ru": "Познавательные",
+    "Nauka.ru": "Познавательные",
+    "NationalGeographic.ru": "Познавательные",
+    "NationalGeographicWild.ru": "Познавательные",
+    "InvestigationDiscovery.ru": "Познавательные",
+}
+
+CHILD_NAME_RE = re.compile(
+    r"(детск|мульт|baby|tiji|nickelodeon|cartoon|kids|junior|"
+    r"капитан фантастика|супергеро|рыжий|карусел)", re.I
+)
+RELIGIOUS_NAME_RE = re.compile(
+    r"(^|[^а-я])(спас|союз|вера|надежда|православ|христиан|"
+    r"миллет|ислам|мусульман)([^а-я]|$)", re.I
+)
+
+def is_excluded_channel(channel, title):
+    tags = set(channel.get("categories") or [])
+    if "kids" in tags or CHILD_NAME_RE.search(title or ""):
+        return True
+    if "religious" in tags or RELIGIOUS_NAME_RE.search(title or ""):
+        return True
+    return False
 
 def download_text(url):
     request = Request(url, headers={"User-Agent": "iptv-russia-spb-playlist/2.0"})
@@ -173,28 +205,56 @@ def quality_score(value):
     progressive = 1 if match.group(2) == "p" else 0
     return height * 10 + progressive
 
-def classify(categories):
-    # Prefer a specific category if a channel has several tags.
-    priority = [
-        "news", "sports", "kids", "animation", "music", "movies", "series",
-        "documentary", "education", "science", "entertainment", "lifestyle",
-        "general", "religious",
-    ]
+def classify(channel_id, categories, feed):
+    # Explicit editorial corrections take priority over imperfect source tags.
+    if channel_id in CATEGORY_OVERRIDES:
+        return CATEGORY_OVERRIDES[channel_id]
+
     tags = set(categories or [])
-    for tag in priority:
-        if tag in tags:
-            return CATEGORY_NAMES[tag]
-    return "Развлекательные"
+    if "movies" in tags:
+        return "Фильмы"
+    if tags & {"documentary", "education", "science", "culture", "travel",
+               "outdoor", "lifestyle", "auto", "cooking"}:
+        return "Познавательные"
+    if "sports" in tags:
+        return "Спорт"
+    if "music" in tags:
+        return "Музыка"
+    if "series" in tags:
+        return "Сериалы"
+
+    areas = set(feed.get("broadcast_area") or [])
+    if not (areas & {"c/RU"}):
+        return "Санкт-Петербург и Ленобласть"
+    # News, general and entertainment broadcasters with nationwide coverage
+    # belong together instead of being scattered across miscellaneous groups.
+    return "Общероссийские"
 
 def feed_allowed(feed):
     areas = set(feed.get("broadcast_area") or [])
     zones = set(feed.get("timezones") or [])
-    # Reject multi-time-zone feeds: they cannot guarantee Moscow-time scheduling.
-    return bool(areas & ALLOWED_AREAS) and zones == {REQUIRED_TIMEZONE}
+    languages = set(feed.get("languages") or [])
+    # Reject multi-time-zone feeds and feeds whose only declared language is Ukrainian.
+    language_ok = not ("ukr" in languages and "rus" not in languages)
+    return bool(areas & ALLOWED_AREAS) and zones == {REQUIRED_TIMEZONE} and language_ok
+
+def guide_allowed(channel_id, guide_languages):
+    langs = guide_languages.get(channel_id, set())
+    # If guide metadata exists, keep only channels with a Russian-language guide.
+    # Channels without guide metadata may still remain, but won't be matched to a
+    # Ukrainian-language guide from this source list.
+    return not langs or "ru" in langs
 
 def main():
     channels = {item["id"]: item for item in download_json("channels")}
     feeds_data = download_json("feeds")
+    guides_data = download_json("guides")
+    guide_languages = {}
+    for guide in guides_data:
+        channel_id = guide.get("channel")
+        language = guide.get("lang")
+        if channel_id and language:
+            guide_languages.setdefault(channel_id, set()).add(language)
     feeds = {}
     for item in feeds_data:
         feeds[(item.get("channel"), item.get("id"))] = item
@@ -231,8 +291,12 @@ def main():
 
         channel_id, separator, feed_id = raw_id.partition("@")
         channel = channels.get(channel_id)
-        if not channel or channel.get("country") != "RU" or channel.get("is_nsfw"):
+        if (not channel or channel.get("country") != "RU"
+                or channel.get("is_nsfw") or channel.get("closed")):
             skipped_no_metadata += 1
+            continue
+        if not guide_allowed(channel_id, guide_languages):
+            skipped_time_area += 1
             continue
 
         eligible = eligible_by_channel.get(channel_id, [])
@@ -253,9 +317,11 @@ def main():
         if not title:
             title = channel.get("name") or channel_id
 
-        # Use channel categories from the maintained database, not a short
-        # hand-written whitelist of channel names.
-        group = classify(channel.get("categories"))
+        # Remove children's and religious channels entirely, not just their tags.
+        if is_excluded_channel(channel, title):
+            continue
+
+        group = classify(channel_id, channel.get("categories"), feed)
         score = quality_score(feed.get("format"))
         candidate = {
             "channel_id": channel_id,
