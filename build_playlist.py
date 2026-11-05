@@ -240,6 +240,7 @@ def apply_epg_ids(chosen):
         exact = 0
         by_name = 0
         unmatched = 0
+        unmatched_details = []
         used_ids = set()
         alias_owners = {}
         for channel_id, item in chosen.items():
@@ -274,12 +275,24 @@ def apply_epg_ids(chosen):
                 item["epg_id"] = channel_id
                 item["epg_name"] = item.get("title", "")
                 unmatched += 1
+                unmatched_details.append({
+                    "id": channel_id,
+                    "title": item.get("title", ""),
+                    "aliases": aliases,
+                })
 
         print(
             f"EPG matching: {exact} exact IDs, {by_name} unique alias matches, "
             f"{unmatched} without a confirmed programme ID "
             f"(guide contains {len(programme_ids)} channel IDs)"
         )
+        if unmatched_details:
+            print("EPG unmatched channel details:")
+            for item in unmatched_details:
+                print(
+                    f"  {item['id']} | {item['title']} | "
+                    f"{'; '.join(item['aliases'])}"
+                )
     except Exception as error:
         raise RuntimeError(f"Unable to verify XMLTV coverage: {error}") from error
 
