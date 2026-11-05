@@ -264,7 +264,7 @@ http://31.148.48.15/Eda_Premium_HD/index.m3u8
 #EXTINF:-1 tvg-id="ZhivayaPlaneta.ru" tvg-logo="https://i.imgur.com/onNv1tM.png" tvg-name="Живая Планета" group-title="Познавательные",Живая Планета
 https://stream8.cinerama.uz/1250/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-id="Zhivayapriroda.ru" tvg-logo="https://i.imgur.com/9lHQPdN.png" tvg-name="Живая природа" group-title="Познавательные",Живая природа
-http://stream.mcquack.net/83/index.m3u8
+http://stream.mcquack.net/225/index.m3u8
 #EXTINF:-1 tvg-id="Istoriya.ru" tvg-logo="https://i.imgur.com/eEjPail.png" tvg-name="История" group-title="Познавательные",История
 https://fs.uplink.kz/istoriya/mono.m3u8?token=onlinetv
 #EXTINF:-1 tvg-id="Ktoestkto.ru" tvg-logo="https://i.imgur.com/PmD17UQ.png" tvg-name="Кто есть кто" group-title="Познавательные",Кто есть кто
@@ -434,7 +434,7 @@ https://streaming.thestream.cyou/live/44.m3u8
 #EXTINF:-1 tvg-id="DomkinoPremium.ru" tvg-logo="https://i.imgur.com/rJpQtvK.png" tvg-name="Дом кино Премиум" group-title="Фильмы и сериалы",Дом кино Премиум
 http://stream.mcquack.net/108/index.m3u8
 #EXTINF:-1 tvg-id="Dorama.ru" tvg-logo="https://i.imgur.com/ZH5LuXU.png" tvg-name="Дорама" group-title="Фильмы и сериалы",Дорама
-https://fs.uplink.kz/dorama/mono.m3u8?token=onlinetv
+http://stream.mcquack.net/412/index.m3u8
 #EXTINF:-1 tvg-id="Evrokino.ru" tvg-logo="https://i.imgur.com/8LPtPf6.png" tvg-name="Еврокино" group-title="Фильмы и сериалы",Еврокино
 http://stream.mcquack.net/385/index.m3u8
 #EXTINF:-1 tvg-id="IllusionPlus.ru" tvg-logo="https://i.imgur.com/9GvuHQ5.png" tvg-name="Иллюзион+" group-title="Фильмы и сериалы",Иллюзион+
