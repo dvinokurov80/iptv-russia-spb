@@ -303,9 +303,11 @@ def display_name(extinf, metadata, channel):
         value = re.sub(r"\s*[\[(](?:\d{3,4}\s*[pi]|4k|uhd|fhd|hd|sd)[\])]\s*$", "", value, flags=re.I)
         return re.sub(r"\s+\d{3,4}\s*[pi]\s*$", "", value, flags=re.I).strip()
     candidates = [remove_quality(item.strip()) for item in candidates if item and item.strip()]
-    # The channel database's canonical name is the primary display name.
-    # Do not replace a Latin-script broadcaster name with a Cyrillic alias:
-    # the user explicitly prefers official English names to stay in English.
+    local_name = next((item for item in candidates if has_cyrillic(item)), None)
+    if local_name:
+        return local_name
+    # No local-script name: use the broadcaster's canonical database name
+    # rather than inventing a Russian transliteration.
     canonical = channel.get("name") or (candidates[0] if candidates else channel.get("id", ""))
     return remove_quality(canonical.strip())
 
