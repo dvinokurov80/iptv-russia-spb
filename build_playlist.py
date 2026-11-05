@@ -20,7 +20,7 @@ SOURCES = {
     "len": "https://iptv-org.github.io/iptv/subdivisions/ru-len.m3u",
 }
 API = "https://iptv-org.github.io/api"
-EPG_URL = "http://epg.one/ru.xml.gz"
+EPG_URL = "https://iptvx.one/EPG"
 OUTPUT = Path("playlist.m3u")
 
 # Only nationwide feeds and feeds explicitly assigned to Saint Petersburg
