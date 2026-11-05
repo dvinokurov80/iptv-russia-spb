@@ -67,8 +67,46 @@ def parse_m3u(text):
 def attrs(extinf):
     return dict(re.findall(r'([\w-]+)="([^"]*)"', extinf))
 
-def display_name(extinf, metadata):
-    return metadata.get("tvg-name") or extinf.rsplit(",", 1)[-1].strip()
+def has_cyrillic(value):
+    return bool(re.search(r"[А-Яа-яЁё]", value or ""))
+
+def transliterate_to_russian(value):
+    # Fallback only when the maintained channel metadata has no Russian alias.
+    text = (value or "").strip()
+    replacements = [
+        ("shch", "щ"), ("sch", "щ"), ("yo", "ё"), ("zh", "ж"),
+        ("kh", "х"), ("ts", "ц"), ("ch", "ч"), ("sh", "ш"),
+        ("yu", "ю"), ("ya", "я"), ("ye", "е"),
+    ]
+    lower = text.lower()
+    for source, target in replacements:
+        lower = lower.replace(source, target)
+    table = str.maketrans({
+        "a":"а", "b":"б", "c":"к", "d":"д", "e":"е", "f":"ф",
+        "g":"г", "h":"х", "i":"и", "j":"дж", "k":"к", "l":"л",
+        "m":"м", "n":"н", "o":"о", "p":"п", "q":"к", "r":"р",
+        "s":"с", "t":"т", "u":"у", "v":"в", "w":"в", "x":"кс",
+        "y":"ы", "z":"з",
+    })
+    return lower.translate(table)
+
+def display_name(extinf, metadata, channel):
+    candidates = []
+    native = channel.get("native_name")
+    if native:
+        candidates.append(native)
+    candidates.extend(channel.get("alt_names") or [])
+    candidates.extend([
+        metadata.get("tvg-name") or "",
+        extinf.rsplit(",", 1)[-1].strip(),
+        channel.get("name") or "",
+    ])
+    title = next((item.strip() for item in candidates if has_cyrillic(item)), "")
+    if not title:
+        title = next((item.strip() for item in candidates if item.strip()), channel.get("id", ""))
+        title = transliterate_to_russian(title)
+    title = re.sub(r"\s*[\[(](?:\d{3,4}\s*[pi]|4k|uhd|fhd|hd|sd)[\])]\s*$", "", title, flags=re.I)
+    return title.strip()
 
 def clean_extinf(extinf, channel_id, group, title):
     head, comma, _ = extinf.partition(",")
@@ -164,7 +202,7 @@ def main():
             continue
 
         feed = matches[0]
-        title = display_name(extinf, meta)
+        title = display_name(extinf, meta, channel)
         if not title:
             title = channel.get("name") or channel_id
 
