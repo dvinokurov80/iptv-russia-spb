@@ -154,12 +154,14 @@ def display_name(extinf, metadata, channel):
     return remove_quality(title)
 
 def clean_extinf(extinf, channel_id, group, title):
-    head, comma, _ = extinf.partition(",")
-    head = re.sub(r'\s+group-title="[^"]*"', "", head)
-    if re.search(r'tvg-id="[^"]*"', head):
-        head = re.sub(r'tvg-id="[^"]*"', f'tvg-id="{channel_id}"', head)
-    else:
-        head += f' tvg-id="{channel_id}"'
+    # Rebuild the attribute list instead of carrying arbitrary source attributes.
+    # Some upstream entries contain malformed/unclosed http-user-agent quotes,
+    # which can make IPTV players reject the entire M3U document.
+    metadata = attrs(extinf)
+    logo = metadata.get("tvg-logo", "")
+    head = f'#EXTINF:-1 tvg-id="{channel_id}"'
+    if logo:
+        head += f' tvg-logo="{logo}"'
     head += f' group-title="{group}"'
     return head + "," + title
 
