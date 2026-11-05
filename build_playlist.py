@@ -133,7 +133,7 @@ RELIGIOUS_NAME_RE = re.compile(
 )
 SPORTS_NAME_RE = re.compile(
     r"(спорт|sport|матч!?|футбол|хоккей|баскетбол|теннис|"
-    r"бокс|единоборств|автоспорт|гонк|олимп)", re.I
+    r"бокс|единоборств|автоспорт|гонк|олимп|арсенал)", re.I
 )
 FILM_SERIES_NAME_RE = re.compile(
     r"(кино|кинозал|киносери|фильм|сериал|серия|cinema|movie|film|series|serial)", re.I
