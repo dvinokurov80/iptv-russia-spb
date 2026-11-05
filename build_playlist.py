@@ -299,7 +299,7 @@ def probe_stream(url):
         "Range": "bytes=0-2047",
     })
     try:
-        with urlopen(request, timeout=10) as response:
+        with urlopen(request, timeout=7) as response:
             status = getattr(response, "status", 200)
             sample = response.read(2048)
             if status in (404, 410, 451):
@@ -320,37 +320,61 @@ def probe_stream(url):
 
 
 def choose_healthy_streams(candidates_by_channel):
-    """Prefer a confirmed live stream; retain inconclusive streams rather than over-filter."""
-    checks = {}
-    urls = sorted({item["url"] for items in candidates_by_channel.values() for item in items})
-    with ThreadPoolExecutor(max_workers=16) as pool:
-        futures = {pool.submit(probe_stream, url): url for url in urls}
-        for future in as_completed(futures):
-            url = futures[future]
-            try:
-                checks[url] = future.result()
-            except Exception:
-                checks[url] = None
-    chosen = {}
-    removed = confirmed = unknown = 0
+    """Check each channel's best stream first; probe fallbacks only when needed."""
+    ranked_by_channel = {}
     for channel_id, items in candidates_by_channel.items():
         unique = {}
         for item in items:
             previous = unique.get(item["url"])
             if previous is None or item["score"] > previous["score"]:
                 unique[item["url"]] = item
-        ranked = sorted(unique.values(), key=lambda item: item["score"], reverse=True)
-        live = [item for item in ranked if checks.get(item["url"]) is True]
-        uncertain = [item for item in ranked if checks.get(item["url"]) is None]
-        if live:
-            chosen[channel_id] = live[0]
-            confirmed += 1
-        elif uncertain:
-            chosen[channel_id] = uncertain[0]
-            unknown += 1
-        else:
-            removed += 1
-    print(f"Stream check: {confirmed} confirmed responding, {unknown} inconclusive retained, {removed} channels removed")
+        ranked_by_channel[channel_id] = sorted(
+            unique.values(), key=lambda item: item["score"], reverse=True
+        )
+
+    chosen = {}
+    uncertain = {}
+    active = ranked_by_channel
+    confirmed = unknown = removed = 0
+
+    while active:
+        batch = {channel_id: items[0] for channel_id, items in active.items()}
+        checks = {}
+        with ThreadPoolExecutor(max_workers=32) as pool:
+            futures = {
+                pool.submit(probe_stream, item["url"]): channel_id
+                for channel_id, item in batch.items()
+            }
+            for future in as_completed(futures):
+                channel_id = futures[future]
+                try:
+                    checks[channel_id] = future.result()
+                except Exception:
+                    checks[channel_id] = None
+
+        next_active = {}
+        for channel_id, items in active.items():
+            item = items[0]
+            result = checks.get(channel_id)
+            if result is True:
+                chosen[channel_id] = item
+                confirmed += 1
+                continue
+            if result is None and channel_id not in uncertain:
+                uncertain[channel_id] = item
+            if len(items) > 1:
+                next_active[channel_id] = items[1:]
+            elif channel_id in uncertain:
+                chosen[channel_id] = uncertain[channel_id]
+                unknown += 1
+            else:
+                removed += 1
+        active = next_active
+
+    print(
+        f"Stream check: {confirmed} confirmed responding, "
+        f"{unknown} inconclusive retained, {removed} channels removed"
+    )
     return chosen
 
 def quality_score(value):
