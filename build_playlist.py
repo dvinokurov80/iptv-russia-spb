@@ -240,10 +240,11 @@ def feed_allowed(feed):
 
 def guide_allowed(channel_id, guide_languages):
     langs = guide_languages.get(channel_id, set())
-    # If guide metadata exists, keep only channels with a Russian-language guide.
-    # Channels without guide metadata may still remain, but won't be matched to a
-    # Ukrainian-language guide from this source list.
-    return not langs or "ru" in langs
+    # Exclude guides explicitly marked Ukrainian unless a Russian guide is also
+    # available. English/other guide metadata alone is not evidence of Ukrainian EPG.
+    has_ukrainian = bool(langs & {"uk", "ukr"})
+    has_russian = "ru" in langs
+    return not has_ukrainian or has_russian
 
 def main():
     channels = {item["id"]: item for item in download_json("channels")}
