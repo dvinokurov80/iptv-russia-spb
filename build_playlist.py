@@ -4,6 +4,8 @@
 from urllib.request import Request, urlopen
 from datetime import datetime, timezone
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.error import HTTPError, URLError
 import json
 import re
 
@@ -16,7 +18,7 @@ SOURCES = {
     "len": "https://iptv-org.github.io/iptv/subdivisions/ru-len.m3u",
 }
 API = "https://iptv-org.github.io/api"
-EPG_URL = "http://epg.one/ru.xml.gz"
+EPG_URL = "https://iptv-org.github.io/epg/guides/ru/tv.yandex.ru.epg.xml"
 OUTPUT = Path("playlist.m3u")
 
 # Only nationwide feeds and feeds explicitly assigned to Saint Petersburg
@@ -222,6 +224,67 @@ def clean_extinf(extinf, channel_id, group, title):
     head += f' group-title="{group}"'
     return head + "," + title
 
+def probe_stream(url):
+    """Return True for a responding stream, False for a clearly dead URL, None if inconclusive."""
+    request = Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (compatible; IPTVPlaylistHealthCheck/1.0)",
+        "Range": "bytes=0-2047",
+    })
+    try:
+        with urlopen(request, timeout=10) as response:
+            status = getattr(response, "status", 200)
+            sample = response.read(2048)
+            if status in (404, 410, 451):
+                return False
+            if ".m3u8" in url.lower() and sample:
+                prefix = sample.lstrip()[:256].lower()
+                if prefix.startswith((b"<!doctype html", b"<html", b"<head")):
+                    return False
+                if not sample.lstrip().startswith(b"#EXTM3U"):
+                    return None
+            return True
+    except HTTPError as error:
+        if error.code in (404, 410, 451):
+            return False
+        return None
+    except (TimeoutError, URLError, OSError):
+        return None
+
+
+def choose_healthy_streams(candidates_by_channel):
+    """Prefer a confirmed live stream; retain inconclusive streams rather than over-filter."""
+    checks = {}
+    urls = sorted({item["url"] for items in candidates_by_channel.values() for item in items})
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        futures = {pool.submit(probe_stream, url): url for url in urls}
+        for future in as_completed(futures):
+            url = futures[future]
+            try:
+                checks[url] = future.result()
+            except Exception:
+                checks[url] = None
+    chosen = {}
+    removed = confirmed = unknown = 0
+    for channel_id, items in candidates_by_channel.items():
+        unique = {}
+        for item in items:
+            previous = unique.get(item["url"])
+            if previous is None or item["score"] > previous["score"]:
+                unique[item["url"]] = item
+        ranked = sorted(unique.values(), key=lambda item: item["score"], reverse=True)
+        live = [item for item in ranked if checks.get(item["url"]) is True]
+        uncertain = [item for item in ranked if checks.get(item["url"]) is None]
+        if live:
+            chosen[channel_id] = live[0]
+            confirmed += 1
+        elif uncertain:
+            chosen[channel_id] = uncertain[0]
+            unknown += 1
+        else:
+            removed += 1
+    print(f"Stream check: {confirmed} confirmed responding, {unknown} inconclusive retained, {removed} channels removed")
+    return chosen
+
 def quality_score(value):
     match = re.search(r'(\d{3,4})\s*([pi])?', str(value or "").lower())
     if not match:
@@ -298,7 +361,7 @@ def main():
 
     # Build one best-quality entry per channel. No regional feeds outside
     # Saint Petersburg/Leningrad and no feeds with non-Moscow time zones.
-    chosen = {}
+    candidates_by_channel = {}
     skipped_no_metadata = 0
     skipped_time_area = 0
 
@@ -359,9 +422,9 @@ def main():
             "main": bool(feed.get("is_main")),
             "area": set(feed.get("broadcast_area") or []),
         }
-        current = chosen.get(channel_id)
-        if current is None or (candidate["score"], candidate["main"]) > (current["score"], current["main"]):
-            chosen[channel_id] = candidate
+        candidates_by_channel.setdefault(channel_id, []).append(candidate)
+
+    chosen = choose_healthy_streams(candidates_by_channel)
 
     # NTV Style is confirmed as a Russian, Moscow-time channel with an
     # official NTV CDN stream, but some upstream playlist mirrors omit tvg-id.
