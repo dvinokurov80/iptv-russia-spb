@@ -95,6 +95,7 @@ FEDERAL_GROUPS = {
     "2x2": "Развлекательные",
 }
 FAVOURITES = {"Первый канал", "Россия 1", "НТВ", "СТС", "ТНТ", "Пятница!", "Россия 24", "Матч ТВ"}
+SPB_NAMES = {"sanktpeterburg.ru": "Телеканал Санкт-Петербург"}
 BAD_MARKERS = ("[geo-blocked]", "[not 24/7]", "[offline]", "[broken]")
 
 def download(url):
@@ -177,7 +178,8 @@ def main():
         if any(marker in (extinf + " " + url).lower() for marker in BAD_MARKERS):
             continue
         metadata = attrs(extinf)
-        title = clean_name(extinf, metadata)
+        channel_id = metadata.get("tvg-id", "").lower().split("@", 1)[0]
+        title = SPB_NAMES.get(channel_id, clean_name(extinf, metadata))
         group = infer_group(title, metadata.get("group-title", ""))
         selected.append((extinf, url, title, group, True))
 
@@ -188,12 +190,13 @@ def main():
         key = (channel_key, group)
         if key not in written:
             written.add(key)
+            extinf = re.sub(r'(tvg-id="[^"@]+)@[^"]*"', r'\1"', extinf)
             output.extend((set_group(extinf, group, title), url))
 
     for extinf, url, title, group, is_spb in selected:
         if not is_spb and title in FAVOURITES:
             metadata = attrs(extinf)
-            channel_key = (metadata.get("tvg-id") or normalized(title)).lower()
+            channel_key = (metadata.get("tvg-id", "").lower().split("@", 1)[0] or normalized(title))
             key = (channel_key, "Избранное")
             if key not in written:
                 written.add(key)
