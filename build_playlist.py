@@ -164,27 +164,9 @@ def attrs(extinf):
 def has_cyrillic(value):
     return bool(re.search(r"[А-Яа-яЁё]", value or ""))
 
-def transliterate_to_russian(value):
-    # Fallback only when the maintained channel metadata has no Russian alias.
-    text = (value or "").strip()
-    replacements = [
-        ("shch", "щ"), ("sch", "щ"), ("yo", "ё"), ("zh", "ж"),
-        ("kh", "х"), ("ts", "ц"), ("ch", "ч"), ("sh", "ш"),
-        ("yu", "ю"), ("ya", "я"), ("ye", "е"),
-    ]
-    lower = text.lower()
-    for source, target in replacements:
-        lower = lower.replace(source, target)
-    table = str.maketrans({
-        "a":"а", "b":"б", "c":"к", "d":"д", "e":"е", "f":"ф",
-        "g":"г", "h":"х", "i":"и", "j":"дж", "k":"к", "l":"л",
-        "m":"м", "n":"н", "o":"о", "p":"п", "q":"к", "r":"р",
-        "s":"с", "t":"т", "u":"у", "v":"в", "w":"в", "x":"кс",
-        "y":"ы", "z":"з",
-    })
-    return lower.translate(table)
-
 def display_name(extinf, metadata, channel):
+    # Keep the broadcaster's original spelling. Prefer an established Cyrillic
+    # alias when one exists; otherwise preserve the official Latin-script name.
     candidates = []
     native = channel.get("native_name")
     if native:
@@ -195,22 +177,18 @@ def display_name(extinf, metadata, channel):
         extinf.rsplit(",", 1)[-1].strip(),
         channel.get("name") or "",
     ])
-
     def remove_quality(value):
-        value = re.sub(r"\s*[\[(](?:\d{3,4}\s*[pi]|4k|uhd|fhd|hd|sd)[\])]\s*$", "", value, flags=re.I)
-        return re.sub(r"\s+\d{3,4}\s*[pi]\s*$", "", value, flags=re.I).strip()
-
+        value = re.sub(r"\\s*[\\[(](?:\\d{3,4}\\s*[pi]|4k|uhd|fhd|hd|sd)[\\])]\\s*$", "", value, flags=re.I)
+        return re.sub(r"\\s+\\d{3,4}\\s*[pi]\\s*$", "", value, flags=re.I).strip()
     candidates = [remove_quality(item.strip()) for item in candidates if item and item.strip()]
-    title = next((item for item in candidates if has_cyrillic(item)), "")
-    if not title:
-        title = next(iter(candidates), channel.get("id", ""))
-        title = transliterate_to_russian(title).title()
-        # Restore common broadcast abbreviations after transliteration.
-        title = re.sub(r"\bТв\b", "ТВ", title)
-        title = re.sub(r"\bХд\b", "HD", title)
-        title = re.sub(r"\bФм\b", "FM", title)
-        title = re.sub(r"\bРу\b", "RU", title)
-    return remove_quality(title)
+    # If the channel metadata has a Russian/local-script name, use it.
+    local_name = next((item for item in candidates if has_cyrillic(item)), None)
+    if local_name:
+        return local_name
+    # No local-script name: use the broadcaster's canonical database name
+    # rather than inventing a Russian transliteration.
+    canonical = channel.get("name") or (candidates[0] if candidates else channel.get("id", ""))
+    return remove_quality(canonical.strip())
 
 def clean_extinf(extinf, channel_id, group, title):
     # Rebuild the attribute list instead of carrying arbitrary source attributes.
