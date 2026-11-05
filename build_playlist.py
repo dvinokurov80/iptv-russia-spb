@@ -148,6 +148,15 @@ def set_group(extinf, group, title):
 def main():
     national = list(parse_m3u(download(NATIONAL_URL)))
     spb = list(parse_m3u(download(SPB_URL)))
+    print("SOURCE COUNTS national={} spb={}".format(len(national), len(spb)))
+    for label, records in (("NATIONAL", national), ("SPB", spb)):
+        print(label + " SAMPLE:")
+        for sample_extinf, sample_url in records[:25]:
+            sample_meta = attrs(sample_extinf)
+            print("  id={!r} name={!r} display={!r}".format(
+                sample_meta.get("tvg-id"), sample_meta.get("tvg-name"),
+                sample_extinf.rsplit(",", 1)[-1].strip()
+            ))
     output = ['#EXTM3U x-tvg-url="' + EPG_URL + '"']
     selected = []
 
