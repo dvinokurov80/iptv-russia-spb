@@ -30,6 +30,21 @@ ALLOWED_AREAS = {"c/RU", "s/RU-SPE", "s/RU-LEN"}
 REQUIRED_TIMEZONE = "Europe/Moscow"
 MIN_UNIQUE_CHANNELS = 30
 
+# Exclude known non-local regional channels, children's channels missed by
+# imperfect source tags, and radio stations from this TV-only playlist.
+EXCLUDED_CHANNEL_IDS = {
+    "Kuban24.ru", "Tavriya.ru", "NTS.ru", "ZaTV.ru", "Istoki.ru",
+    "ShayanTV.ru", "VestiFM.ru", "GovoritMoskva.ru", "RadioRossii.ru",
+    "Moymir.ru", "Tonus.ru",
+}
+
+# Additional verified names used only for matching XMLTV IDs.
+EPG_NAME_ALIASES = {
+    "BRIDGE.ru": ["Bridge TV"],
+    "BRIDGEHits.ru": ["Bridge TV Hits", "Bridge TV Dance"],
+    "OTR.ru": ["ОТР", "ОТР HD"],
+}
+
 NAME_OVERRIDES = {
     "Ani.ru": "Ани",
     "Nauka.ru": "Наука 2.0",
@@ -131,6 +146,10 @@ EDUCATIONAL_NAME_RE = re.compile(
 
 def is_excluded_channel(channel, title):
     tags = set(channel.get("categories") or [])
+    if channel.get("id") in EXCLUDED_CHANNEL_IDS:
+        return True
+    if "radio" in tags:
+        return True
     if "kids" in tags or CHILD_NAME_RE.search(title or ""):
         return True
     if "religious" in tags or RELIGIOUS_NAME_RE.search(title or ""):
@@ -522,7 +541,7 @@ def main():
         epg_names = [
             title, meta.get("tvg-name", ""), extinf.rsplit(",", 1)[-1].strip(),
             channel.get("name", ""), channel.get("native_name", ""),
-        ] + (channel.get("alt_names") or [])
+        ] + (channel.get("alt_names") or []) + EPG_NAME_ALIASES.get(channel_id, [])
         candidate = {
             "channel_id": channel_id,
             "extinf": extinf,
