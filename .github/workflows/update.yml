@@ -37,7 +37,7 @@ jobs:
           assert data.startswith("#EXTM3U"), "Missing M3U header"
           entries = re.findall(r"^#EXTINF:", data, re.M)
           urls = [line for line in data.splitlines() if line.startswith(("http://", "https://"))]
-          assert entries, "Playlist contains no channels"
+          assert len(entries) >= 10, f"Only {len(entries)} channels selected; refusing to publish an incomplete playlist"
           assert len(entries) == len(urls), f"EXTINF/URL mismatch: {len(entries)} vs {len(urls)}"
           assert 'group-title="' in data, "No category tags found"
           print(f"Validated {len(entries)} channel entries")
