@@ -77,11 +77,24 @@ def normalized(value: str) -> str:
     value = re.sub(r"[^0-9a-zа-я]+", " ", value)
     return " ".join(value.split())
 
+def genre_for(title, source_group="", is_spb=False):
+    text = normalized(title + " " + source_group)
+    if any(x in text for x in ("муз", "music")): return "Музыка"
+    if any(x in text for x in ("кино", "фильм", "movie", "cinema", "сериал")): return "Фильмы"
+    if any(x in text for x in ("спорт", "sport", "матч", "футбол", "хоккей")): return "Спорт"
+    if any(x in text for x in ("новост", "news", "информац")): return "Новости"
+    if any(x in text for x in ("познав", "науч", "документ", "образоват", "science", "education")): return "Познавательные"
+    if any(x in text for x in ("детск", "мульт", "kids", "children")): return "Детские"
+    if any(x in text for x in ("развлек", "шоу", "юмор", "entertain")): return "Развлекательные"
+    return "Санкт-Петербург" if is_spb else "Общероссийские"
+
+FAVOURITES = {"Первый канал", "Россия 1", "НТВ", "СТС", "ТНТ", "Пятница!", "Россия 24", "Матч ТВ"}
+
 def main():
     national = list(parse_m3u(download(NATIONAL_URL)))
     spb = list(parse_m3u(download(SPB_URL)))
     output = ["#EXTM3U x-tvg-url=\"" + EPG_URL + "\""]
-    seen = set()
+    seen = set()\n    selected = []
 
     def add(extinf, url, title=None, group=None):
         metadata = attrs(extinf)
@@ -106,13 +119,44 @@ def main():
                 title = russian_title
                 break
         if title:
-            add(extinf, url, title, "Федеральные")
+            selected.append((extinf, url, title, "Новости" if title in ("Россия 24", "РБК", "ТВ Центр", "Мир 24", "Пятый канал") else "Музыка" if title == "МУЗ-ТВ" else "Спорт" if title == "Матч ТВ" else "Детские" if title == "Карусель" else "Познавательные" if title in ("Россия Культура", "Звезда", "ОТР", "Спас", "РЕН ТВ") else "Развлекательные"))
 
     # Every channel in this subdivision feed belongs to Saint Petersburg.
     for extinf, url in spb:
         metadata = attrs(extinf)
         name = clean_name(extinf, metadata)
-        add(extinf, url, name, "Санкт-Петербург")
+        selected.append((extinf, url, name, genre_for(name, metadata.get("group-title", ""), True)))
+
+    # Write each channel into its genre group.
+    for extinf, url, title, group in selected:
+        extinf = re.sub(r'\\s+group-title="[^"]*"', "", extinf)
+        extinf = re.sub(r',.*
+        raise RuntimeError("No channels selected; refusing to publish an empty playlist.")
+
+    OUTPUT.write_text("\n".join(output) + "\n", encoding="utf-8")
+    print(f"Generated {OUTPUT}: {(len(output) - 1) // 2} entries at {datetime.now(timezone.utc).isoformat()}")
+
+if __name__ == "__main__":
+    main()
+, "," + title, extinf)
+        extinf = re.sub(r'^(#EXTINF:[^,]*)', r'\\1 group-title="' + group + '"', extinf)
+        output.extend((extinf, url))
+
+    # Duplicate a small set of popular federal channels into Favourites.
+    for extinf, url, title, group in selected:
+        if title in FAVOURITES:
+            fav = re.sub(r'\\s+group-title="[^"]*"', "", extinf)
+            fav = re.sub(r',.*
+        raise RuntimeError("No channels selected; refusing to publish an empty playlist.")
+
+    OUTPUT.write_text("\n".join(output) + "\n", encoding="utf-8")
+    print(f"Generated {OUTPUT}: {(len(output) - 1) // 2} entries at {datetime.now(timezone.utc).isoformat()}")
+
+if __name__ == "__main__":
+    main()
+, "," + title, fav)
+            fav = re.sub(r'^(#EXTINF:[^,]*)', r'\\1 group-title="Избранное"', fav)
+            output.extend((fav, url))
 
     if len(output) <= 1:
         raise RuntimeError("No channels selected; refusing to publish an empty playlist.")
