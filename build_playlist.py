@@ -9,6 +9,9 @@ import re
 NATIONAL_URL = "https://iptv-org.github.io/iptv/countries/ru.m3u"
 SPB_URL = "https://iptv-org.github.io/iptv/subdivisions/ru-spe.m3u"
 EPG_URL = "http://epg.one/ru.xml.gz"
+# Public HLS source listed as playable by an IPTV stream directory.
+# The provider may apply geographic restrictions outside Russia.
+FIFTH_CHANNEL_FALLBACK = "https://zabava-htlive.cdn.ngenix.net/hls/CH_5TV/variant.m3u8"
 OUTPUT = Path("playlist.m3u")
 
 FEDERAL_IDS = {
@@ -172,6 +175,8 @@ def main():
                     title = russian_title
                     break
         if title:
+            if title == "Пятый канал":
+                url = FIFTH_CHANNEL_FALLBACK
             selected.append((extinf, url, title, FEDERAL_GROUPS.get(title, "Общероссийские"), False))
 
     for extinf, url in spb:
