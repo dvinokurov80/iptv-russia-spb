@@ -35,6 +35,8 @@ FEDERAL_IDS = {
     "mir24.ru": "Мир 24",
     "rbc.ru": "РБК",
     "5kanal.ru": "Пятый канал",
+    "channel5.ru": "Пятый канал",
+    "2x2.ru": "2x2",
 }
 FEDERAL_NAMES = {
     "первый канал": "Первый канал",
@@ -90,6 +92,7 @@ FEDERAL_GROUPS = {
     "Матч ТВ": "Спорт",
     "МУЗ-ТВ": "Музыка",
     "ТВ-3": "Фильмы",
+    "2x2": "Развлекательные",
 }
 FAVOURITES = {"Первый канал", "Россия 1", "НТВ", "СТС", "ТНТ", "Пятница!", "Россия 24", "Матч ТВ"}
 BAD_MARKERS = ("[geo-blocked]", "[not 24/7]", "[offline]", "[broken]")
@@ -181,7 +184,7 @@ def main():
     written = set()
     for extinf, url, title, group, is_spb in selected:
         metadata = attrs(extinf)
-        channel_key = (metadata.get("tvg-id") or normalized(title)).lower()
+        channel_key = (metadata.get("tvg-id", "").lower().split("@", 1)[0] or normalized(title))
         key = (channel_key, group)
         if key not in written:
             written.add(key)
