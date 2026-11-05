@@ -115,6 +115,11 @@ SPORTS_NAME_RE = re.compile(
 FILM_SERIES_NAME_RE = re.compile(
     r"(кино|кинозал|киносери|фильм|сериал|серия|cinema|movie|film|series|serial)", re.I
 )
+EDUCATIONAL_NAME_RE = re.compile(
+    r"(наук|science|discovery|географ|geographic|travel|путешеств|"
+    r"adventure|рыбал|рыболов|fishing|охот|hunting|природ|nature|"
+    r"животн|animal|океан|ocean|истори|history|планет)", re.I
+)
 
 def is_excluded_channel(channel, title):
     tags = set(channel.get("categories") or [])
@@ -231,8 +236,9 @@ def classify(channel_id, categories, feed, title=""):
     # Names catch film/series channels whose source tags are missing or wrong.
     if tags & {"movies", "series"} or FILM_SERIES_NAME_RE.search(title or ""):
         return "Фильмы и сериалы"
-    if tags & {"documentary", "education", "science", "culture", "travel",
-               "outdoor", "auto", "cooking"}:
+    if (tags & {"documentary", "education", "science", "culture", "travel",
+                "outdoor", "auto", "cooking"}
+            or EDUCATIONAL_NAME_RE.search(title or "")):
         return "Познавательные"
     if tags & {"music"}:
         return "Музыка"
