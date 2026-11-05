@@ -20,7 +20,8 @@ SOURCES = {
     "len": "https://iptv-org.github.io/iptv/subdivisions/ru-len.m3u",
 }
 API = "https://iptv-org.github.io/api"
-EPG_URL = "http://epg.one/ru.xml.gz"
+EPG_URLS = ("https://iptvx.one/EPG", "http://epg.one/ru.xml.gz")
+EPG_URL = EPG_URLS[0]
 OUTPUT = Path("playlist.m3u")
 
 # Only nationwide feeds and feeds explicitly assigned to Saint Petersburg
@@ -144,7 +145,8 @@ def download_text(url):
     request = Request(url, headers={"User-Agent": "iptv-russia-spb-playlist/2.0"})
     with urlopen(request, timeout=60) as response:
         data = response.read()
-    if url.lower().endswith(".gz"):
+    # Some XMLTV servers gzip-compress the body even when the URL has no .gz suffix.
+    if data.startswith(bytes((31, 139))):
         data = gzip.decompress(data)
     return data.decode("utf-8-sig", errors="replace")
 
@@ -176,11 +178,26 @@ def normalize_epg_name(value):
 def apply_epg_ids(chosen):
     """Match playlist channels to IDs with actual programmes in the Russian XMLTV guide."""
     try:
-        root = ET.fromstring(download_text(EPG_URL))
-        programme_ids = {
-            node.get("channel") for node in root.findall("programme")
-            if node.get("channel")
-        }
+        global EPG_URL
+        errors = []
+        for source_url in EPG_URLS:
+            try:
+                candidate_root = ET.fromstring(download_text(source_url))
+                candidate_ids = {
+                    node.get("channel") for node in candidate_root.findall("programme")
+                    if node.get("channel")
+                }
+                if not candidate_ids:
+                    raise ValueError("XMLTV source contains no programme channel IDs")
+                root = candidate_root
+                programme_ids = candidate_ids
+                EPG_URL = source_url
+                break
+            except Exception as source_error:
+                errors.append(f"{source_url}: {source_error}")
+        else:
+            raise RuntimeError("All XMLTV sources failed: " + " | ".join(errors))
+        print(f"EPG source selected: {EPG_URL}")
         names_by_id = {}
         display_names_by_id = {}
         for node in root.findall("channel"):
@@ -245,9 +262,7 @@ def apply_epg_ids(chosen):
             f"(guide contains {len(programme_ids)} channel IDs)"
         )
     except Exception as error:
-        for channel_id, item in chosen.items():
-            item["epg_id"] = channel_id
-        print(f"WARNING: could not verify EPG coverage: {error}")
+        raise RuntimeError(f"Unable to verify XMLTV coverage: {error}") from error
 
 def has_cyrillic(value):
     return bool(re.search(r"[А-Яа-яЁё]", value or ""))
