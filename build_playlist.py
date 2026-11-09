@@ -251,8 +251,8 @@ def build_merged_epg(chosen):
     channels_by_id = {}
     alias_to_id = {}
     ambiguous_aliases = set()
+    programme_candidates_by_id = {}
     programmes_by_id = {}
-    intervals_by_id = {}
     now_utc = datetime.now(timezone.utc)
     window_start = now_utc - timedelta(hours=6)
     window_end = now_utc + timedelta(days=8)
@@ -332,17 +332,13 @@ def build_merged_epg(chosen):
                 if stop_utc <= window_start or start_utc >= window_end or stop_utc <= start_utc:
                     continue
 
-                # Earlier sources win conflicts; later sources fill only gaps.
-                intervals = intervals_by_id.setdefault(canonical_id, [])
-                if any(start_utc < old_stop and stop_utc > old_start for old_start, old_stop in intervals):
-                    continue
-
                 copied = ET.fromstring(ET.tostring(programme, encoding="utf-8"))
                 copied.set("channel", canonical_id)
                 copied.set("start", format_moscow_xmltv(start_dt))
                 copied.set("stop", format_moscow_xmltv(stop_dt))
-                programmes_by_id.setdefault(canonical_id, []).append(copied)
-                intervals.append((start_utc, stop_utc))
+                programme_candidates_by_id.setdefault(canonical_id, []).append(
+                    (source_index, start_utc, stop_utc, copied)
+                )
                 accepted += 1
 
             loaded_sources += 1
@@ -353,6 +349,54 @@ def build_merged_epg(chosen):
         except Exception as error:
             errors.append(f"{source_url}: {error}")
             print(f"EPG source skipped: {source_url}: {error}")
+
+    # Resolve overlaps efficiently after loading all sources. Sources are
+    # processed in configured priority order; later guides fill only gaps.
+    for channel_id, candidates in programme_candidates_by_id.items():
+        accepted_intervals = []
+        accepted_programmes = []
+        source_indexes = sorted({entry[0] for entry in candidates})
+        for source_index in source_indexes:
+            current = sorted(
+                (entry for entry in candidates if entry[0] == source_index),
+                key=lambda entry: (entry[1], entry[2])
+            )
+            new_intervals = []
+            last_source_stop = None
+            existing_index = 0
+            for _source, start_utc, stop_utc, copied in current:
+                if last_source_stop is not None and start_utc < last_source_stop:
+                    last_source_stop = max(last_source_stop, stop_utc)
+                    continue
+                last_source_stop = stop_utc
+                while (
+                    existing_index < len(accepted_intervals)
+                    and accepted_intervals[existing_index][1] <= start_utc
+                ):
+                    existing_index += 1
+                overlaps_existing = (
+                    existing_index < len(accepted_intervals)
+                    and accepted_intervals[existing_index][0] < stop_utc
+                )
+                if overlaps_existing:
+                    continue
+                new_intervals.append((start_utc, stop_utc))
+                accepted_programmes.append(copied)
+
+            # Both lists are sorted and non-overlapping; merge in linear time.
+            merged = []
+            left = right = 0
+            while left < len(accepted_intervals) and right < len(new_intervals):
+                if accepted_intervals[left][0] <= new_intervals[right][0]:
+                    merged.append(accepted_intervals[left])
+                    left += 1
+                else:
+                    merged.append(new_intervals[right])
+                    right += 1
+            merged.extend(accepted_intervals[left:])
+            merged.extend(new_intervals[right:])
+            accepted_intervals = merged
+        programmes_by_id[channel_id] = accepted_programmes
 
     programme_ids = set(programmes_by_id)
     if not programme_ids:
