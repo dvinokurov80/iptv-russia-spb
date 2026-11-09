@@ -21,6 +21,8 @@ SOURCES = {
 }
 API = "https://iptv-org.github.io/api"
 EPG_URLS = (
+    "http://epg.one/epg2.xml.gz",
+    "http://epg.one/ru2.xml.gz",
     "http://download.teleguide.su/download/new3/xmltv.xml.gz",
     "http://programtv.ru/xmltv.xml.gz",
 )
