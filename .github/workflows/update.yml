@@ -83,7 +83,7 @@ jobs:
               assert channel_id in channels, f"Programme references missing channel {channel_id}"
               for key in ("start", "stop"):
                   value = node.get(key, "")
-                  match = re.search(r"([+-]\\d{4})$", value)
+                  match = re.search(r"([+-]\d{4})$", value)
                   assert match, f"Timestamp has no explicit offset: {value}"
                   offsets.add(match.group(1))
               start = datetime.strptime(node.get("start"), "%Y%m%d%H%M%S %z")
