@@ -2,7 +2,7 @@
 """Build a broad free-to-access Russian IPTV playlist for Moscow time."""
 
 from urllib.request import Request, urlopen
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.error import HTTPError, URLError
@@ -28,7 +28,8 @@ EPG_URLS = (
     "http://download.teleguide.su/download/new3/xmltv.xml.gz",
     "http://programtv.ru/xmltv.xml.gz",
 )
-EPG_URL = EPG_URLS[0]
+EPG_URL = "https://raw.githubusercontent.com/dvinokurov80/iptv-russia-spb/main/epg.xml.gz"
+EPG_OUTPUT = Path("epg.xml.gz")
 OUTPUT = Path("playlist.m3u")
 
 # Only nationwide feeds and feeds explicitly assigned to Saint Petersburg
@@ -233,126 +234,220 @@ def normalize_epg_name(value):
     )
     return re.sub(r"[^0-9a-zа-яё]+", "", value.casefold())
 
-def apply_epg_ids(chosen):
-    """Match playlist channels to IDs with actual programmes in the Russian XMLTV guide."""
-    try:
-        global EPG_URL
-        errors = []
-        for source_url in EPG_URLS:
-            try:
-                candidate_root = ET.fromstring(download_text(source_url))
-                candidate_ids = {
-                    node.get("channel") for node in candidate_root.findall("programme")
-                    if node.get("channel")
-                }
-                if not candidate_ids:
-                    raise ValueError("XMLTV source contains no programme channel IDs")
-                programme_starts = [
-                    node.get("start", "").strip()
-                    for node in candidate_root.findall("programme")
-                    if node.get("start")
+def parse_xmltv_datetime(value):
+    """Parse an XMLTV timestamp with an explicit numeric UTC offset."""
+    value = (value or "").strip()
+    if not re.fullmatch(r"\d{14}\s+[+-]\d{4}", value):
+        raise ValueError(f"Unsupported XMLTV timestamp: {value!r}")
+    return datetime.strptime(value, "%Y%m%d%H%M%S %z")
+
+def format_moscow_xmltv(value):
+    """Convert an aware datetime to fixed Moscow time (UTC+03:00)."""
+    return value.astimezone(timezone(timedelta(hours=3))).strftime("%Y%m%d%H%M%S %z")
+
+def build_merged_epg(chosen):
+    """Merge XMLTV feeds, normalize timestamps and prefer source order on conflicts."""
+    errors = []
+    channels_by_id = {}
+    alias_to_id = {}
+    ambiguous_aliases = set()
+    programmes_by_id = {}
+    intervals_by_id = {}
+    now_utc = datetime.now(timezone.utc)
+    window_start = now_utc - timedelta(hours=6)
+    window_end = now_utc + timedelta(days=8)
+    loaded_sources = 0
+
+    for source_index, source_url in enumerate(EPG_URLS):
+        try:
+            source_root = ET.fromstring(download_text(source_url))
+            source_channels = {
+                node.get("id"): node for node in source_root.findall("channel") if node.get("id")
+            }
+            source_programmes = source_root.findall("programme")
+            if not source_channels or not source_programmes:
+                raise ValueError("XMLTV feed has no channels or programmes")
+
+            source_id_map = {}
+            for old_id, node in source_channels.items():
+                names = [
+                    child.text.strip() for child in node.findall("display-name")
+                    if child.text and child.text.strip()
                 ]
-                offsets = {
-                    match.group(1)
-                    for value in programme_starts
-                    for match in [re.search(r"([+-]\d{4})$", value)]
-                    if match
+                normalized = {
+                    normalize_epg_name(name) for name in names
+                    if len(normalize_epg_name(name)) >= 4
                 }
-                if not programme_starts or offsets != {"+0300"}:
-                    raise ValueError(
-                        f"XMLTV timestamps are not consistently Moscow time (+0300): {sorted(offsets)}"
-                    )
-                if any(not re.search(r"[+-]\d{4}$", value) for value in programme_starts):
-                    raise ValueError("XMLTV contains programme times without an explicit UTC offset")
-                root = candidate_root
-                programme_ids = candidate_ids
-                EPG_URL = source_url
-                break
-            except Exception as source_error:
-                errors.append(f"{source_url}: {source_error}")
+                matches = {
+                    alias_to_id[name] for name in normalized
+                    if name in alias_to_id and name not in ambiguous_aliases
+                }
+                if len(matches) == 1:
+                    canonical_id = next(iter(matches))
+                elif old_id in channels_by_id:
+                    canonical_id = old_id
+                else:
+                    canonical_id = old_id
+                    if canonical_id in channels_by_id:
+                        canonical_id = f"xmltv{source_index}_{old_id}"
+
+                source_id_map[old_id] = canonical_id
+                if canonical_id not in channels_by_id:
+                    channel_copy = ET.fromstring(ET.tostring(node, encoding="utf-8"))
+                    channel_copy.set("id", canonical_id)
+                    channels_by_id[canonical_id] = channel_copy
+                else:
+                    existing = channels_by_id[canonical_id]
+                    existing_names = {
+                        (child.text or "").strip().casefold()
+                        for child in existing.findall("display-name")
+                    }
+                    for child in node.findall("display-name"):
+                        name = (child.text or "").strip()
+                        if name and name.casefold() not in existing_names:
+                            existing.append(ET.fromstring(ET.tostring(child, encoding="utf-8")))
+                            existing_names.add(name.casefold())
+
+                for name in normalized:
+                    if name in ambiguous_aliases:
+                        continue
+                    if name not in alias_to_id:
+                        alias_to_id[name] = canonical_id
+                    elif alias_to_id[name] != canonical_id:
+                        alias_to_id.pop(name, None)
+                        ambiguous_aliases.add(name)
+
+            accepted = 0
+            for programme in source_programmes:
+                canonical_id = source_id_map.get(programme.get("channel"))
+                if not canonical_id:
+                    continue
+                try:
+                    start_dt = parse_xmltv_datetime(programme.get("start"))
+                    stop_dt = parse_xmltv_datetime(programme.get("stop"))
+                except Exception:
+                    continue
+                start_utc = start_dt.astimezone(timezone.utc)
+                stop_utc = stop_dt.astimezone(timezone.utc)
+                if stop_utc <= window_start or start_utc >= window_end or stop_utc <= start_utc:
+                    continue
+
+                # Earlier sources win conflicts; later sources fill only gaps.
+                intervals = intervals_by_id.setdefault(canonical_id, [])
+                if any(start_utc < old_stop and stop_utc > old_start for old_start, old_stop in intervals):
+                    continue
+
+                copied = ET.fromstring(ET.tostring(programme, encoding="utf-8"))
+                copied.set("channel", canonical_id)
+                copied.set("start", format_moscow_xmltv(start_dt))
+                copied.set("stop", format_moscow_xmltv(stop_dt))
+                programmes_by_id.setdefault(canonical_id, []).append(copied)
+                intervals.append((start_utc, stop_utc))
+                accepted += 1
+
+            loaded_sources += 1
+            print(
+                f"EPG source loaded: {source_url}; channels={len(source_channels)}, "
+                f"programmes accepted={accepted}"
+            )
+        except Exception as error:
+            errors.append(f"{source_url}: {error}")
+            print(f"EPG source skipped: {source_url}: {error}")
+
+    programme_ids = set(programmes_by_id)
+    if not programme_ids:
+        raise RuntimeError("No valid programmes could be merged: " + " | ".join(errors))
+
+    names_by_id = {}
+    display_names_by_id = {}
+    for channel_id, node in channels_by_id.items():
+        if channel_id not in programme_ids:
+            continue
+        names = [
+            (child.text.strip(), child.attrib.get("lang", ""))
+            for child in node.findall("display-name")
+            if child.text and child.text.strip()
+        ]
+        if names:
+            display_names_by_id[channel_id] = next(
+                (name for name, lang in names if lang == "ru"), names[0][0]
+            )
+        for name, _lang in names:
+            normalized = normalize_epg_name(name)
+            if normalized and normalized not in ambiguous_aliases:
+                names_by_id.setdefault(normalized, set()).add(channel_id)
+
+    exact = by_name = unmatched = 0
+    unmatched_details = []
+    used_ids = set()
+    alias_owners = {}
+    for channel_id, item in chosen.items():
+        aliases = item.get("epg_names") or [item.get("title", "")]
+        for alias in {normalize_epg_name(value) for value in aliases} - {""}:
+            alias_owners.setdefault(alias, set()).add(channel_id)
+
+    for channel_id, item in chosen.items():
+        if channel_id in programme_ids:
+            item["epg_id"] = channel_id
+            item["epg_name"] = display_names_by_id.get(channel_id, item.get("title", ""))
+            used_ids.add(channel_id)
+            exact += 1
+
+    for channel_id, item in chosen.items():
+        if "epg_id" in item:
+            continue
+        aliases = item.get("epg_names") or [item.get("title", "")]
+        candidates = set()
+        for alias in aliases:
+            name = normalize_epg_name(alias)
+            if name and alias_owners.get(name) == {channel_id}:
+                candidates.update(names_by_id.get(name, set()))
+        if len(candidates) == 1 and not (candidates & used_ids):
+            item["epg_id"] = next(iter(candidates))
+            item["epg_name"] = display_names_by_id.get(item["epg_id"], item.get("title", ""))
+            used_ids.add(item["epg_id"])
+            by_name += 1
         else:
-            raise RuntimeError("All XMLTV sources failed: " + " | ".join(errors))
-        print(f"EPG source selected: {EPG_URL}")
-        names_by_id = {}
-        display_names_by_id = {}
-        for node in root.findall("channel"):
-            epg_id = node.get("id")
-            if not epg_id or epg_id not in programme_ids:
-                continue
-            display_names = [
-                (child.text.strip(), child.attrib.get("lang", ""))
-                for child in node.findall("display-name") if child.text and child.text.strip()
-            ]
-            if display_names:
-                display_names_by_id[epg_id] = next(
-                    (name for name, lang in display_names if lang == "ru"),
-                    display_names[0][0]
-                )
-            for display_name, _lang in display_names:
-                name = normalize_epg_name(display_name)
-                if name:
-                    names_by_id.setdefault(name, set()).add(epg_id)
+            item.pop("epg_id", None)
+            item["epg_name"] = item.get("title", "")
+            unmatched += 1
+            unmatched_details.append({
+                "id": channel_id, "title": item.get("title", ""), "aliases": aliases
+            })
 
-        exact = 0
-        by_name = 0
-        unmatched = 0
-        unmatched_details = []
-        used_ids = set()
-        alias_owners = {}
-        for channel_id, item in chosen.items():
-            aliases = item.get("epg_names") or [item.get("title", "")]
-            normalized = {normalize_epg_name(alias) for alias in aliases}
-            for name in normalized - {""}:
-                alias_owners.setdefault(name, set()).add(channel_id)
+    # Publish a compact guide for the playlist's matched channels only.
+    matched_ids = {item["epg_id"] for item in chosen.values() if item.get("epg_id")}
+    final_root = ET.Element(
+        "tv", {"source-info-name": "Merged Russian XMLTV; Moscow time UTC+03:00"}
+    )
+    for channel_id in sorted(matched_ids):
+        if channel_id in channels_by_id:
+            final_root.append(channels_by_id[channel_id])
+    final_programmes = 0
+    for channel_id in sorted(matched_ids):
+        for programme in sorted(programmes_by_id.get(channel_id, []), key=lambda node: node.get("start", "")):
+            final_root.append(programme)
+            final_programmes += 1
 
-        for channel_id, item in chosen.items():
-            if channel_id in programme_ids:
-                item["epg_id"] = channel_id
-                item["epg_name"] = display_names_by_id.get(channel_id, item.get("title", ""))
-                used_ids.add(channel_id)
-                exact += 1
+    xml_bytes = ET.tostring(final_root, encoding="utf-8", xml_declaration=True)
+    EPG_OUTPUT.write_bytes(gzip.compress(xml_bytes, compresslevel=9, mtime=0))
+    print(
+        f"EPG merged: {loaded_sources}/{len(EPG_URLS)} sources; "
+        f"{final_programmes} programmes for {len(matched_ids)} channels; "
+        "all timestamps normalized to +0300"
+    )
+    print(
+        f"EPG matching: {exact} exact IDs, {by_name} unique alias matches, "
+        f"{unmatched} without a confirmed programme ID "
+        f"(merged guide contains {len(programme_ids)} channel IDs)"
+    )
+    if unmatched_details:
+        print("EPG unmatched channel details:")
+        for item in unmatched_details:
+            print(f"  {item['id']} | {item['title']} | {'; '.join(item['aliases'])}")
 
-        for channel_id, item in chosen.items():
-            if "epg_id" in item:
-                continue
-            aliases = item.get("epg_names") or [item.get("title", "")]
-            candidates = set()
-            for alias in aliases:
-                name = normalize_epg_name(alias)
-                if name and alias_owners.get(name) == {channel_id}:
-                    candidates.update(names_by_id.get(name, set()))
-            # Only accept a genuinely unique name match. Removing IDs
-            # already assigned to another channel before checking uniqueness
-            # can turn an ambiguous match into a false positive.
-            if len(candidates) == 1 and not (candidates & used_ids):
-                item["epg_id"] = next(iter(candidates))
-                item["epg_name"] = display_names_by_id.get(item["epg_id"], item.get("title", ""))
-                used_ids.add(item["epg_id"])
-                by_name += 1
-            else:
-                item.pop("epg_id", None)
-                item["epg_name"] = item.get("title", "")
-                unmatched += 1
-                unmatched_details.append({
-                    "id": channel_id,
-                    "title": item.get("title", ""),
-                    "aliases": aliases,
-                })
-
-        print(
-            f"EPG matching: {exact} exact IDs, {by_name} unique alias matches, "
-            f"{unmatched} without a confirmed programme ID "
-            f"(guide contains {len(programme_ids)} channel IDs)"
-        )
-        if unmatched_details:
-            print("EPG unmatched channel details:")
-            for item in unmatched_details:
-                print(
-                    f"  {item['id']} | {item['title']} | "
-                    f"{'; '.join(item['aliases'])}"
-                )
-    except Exception as error:
-        raise RuntimeError(f"Unable to verify XMLTV coverage: {error}") from error
+    global EPG_URL
+    EPG_URL = "https://raw.githubusercontent.com/dvinokurov80/iptv-russia-spb/main/epg.xml.gz"
 
 def has_cyrillic(value):
     return bool(re.search(r"[А-Яа-яЁё]", value or ""))
@@ -817,8 +912,12 @@ def main():
 
     # No manually injected URLs: every published stream must pass checks.
 
-    apply_epg_ids(chosen)
-    apply_epg_ids(backups)
+    build_merged_epg(chosen)
+    for channel_id, backup in backups.items():
+        primary = chosen.get(channel_id, {})
+        if primary.get("epg_id"):
+            backup["epg_id"] = primary["epg_id"]
+            backup["epg_name"] = primary.get("epg_name", backup.get("title", ""))
 
     if len(chosen) < MIN_UNIQUE_CHANNELS:
         raise RuntimeError(
