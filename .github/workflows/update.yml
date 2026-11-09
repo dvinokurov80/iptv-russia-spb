@@ -45,6 +45,10 @@ jobs:
           urls = [line for line in data.splitlines() if line.startswith(("http://", "https://"))]
           assert len(entries) == len(urls), f"EXTINF/URL mismatch: {len(entries)} vs {len(urls)}"
           assert 'group-title="' in data, "No category tags found"
+          assert 'group-title="Санкт-Петербург и Ленобласть"' not in data, "Separate regional category must not exist"
+          assert 'group-title="Музыка"' not in data, "Music category must not exist"
+          assert not re.search(r"^#EXTINF:.*(?:радио|radio|\\bFM\\b)", data, re.I | re.M), "Radio channel leaked into playlist"
+          assert re.search(r"^#EXTINF:.*(?:Первый канал|Channel One)", data, re.I | re.M), "Первый канал is missing"
           assert not re.search(r'tvg-id="[^"]+@', data), "Unnormalized EPG channel ID"
 
           main_entries = re.findall(r'^#EXTINF:.*?group-title="([^"]+)"', data, re.M)
