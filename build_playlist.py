@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 SOURCES = {
     "national": "https://iptv-org.github.io/iptv/countries/ru.m3u",
     "ntv": "https://raw.githubusercontent.com/iptv-org/iptv/master/streams/ru_ntv.m3u",
+    "iptv_org_streams": "https://raw.githubusercontent.com/iptv-org/iptv/master/streams/ru.m3u",
     "community_ngrch": "https://raw.githubusercontent.com/ngrch/iptv/main/ru.m3u",
     "community_gdydg": "https://raw.githubusercontent.com/gdydg/iptv/main/ru.m3u",
     "spb": "https://iptv-org.github.io/iptv/subdivisions/ru-spe.m3u",
@@ -41,7 +42,7 @@ MIN_UNIQUE_CHANNELS = 100
 EXCLUDED_CHANNEL_IDS = {
     "Kuban24.ru", "Tavriya.ru", "NTS.ru", "ZaTV.ru", "Istoki.ru",
     "ShayanTV.ru", "VestiFM.ru", "GovoritMoskva.ru", "RadioRossii.ru",
-    "Moymir.ru", "Tonus.ru",
+    "Moymir.ru", "Tonus.ru", "StranaFM.ru",
     # Other-region and foreign-language channels are outside this playlist.
     "360-podmoskovye", "360-podmoskovie", "360-news", "krym24", "moskva-24", "RTBalkan.ru",
     # Explicit non-SPB regional channels found in the published playlist.
@@ -56,6 +57,7 @@ EPG_NAME_ALIASES = {
 }
 
 NAME_OVERRIDES = {
+    "ChannelOne.ru": "Первый канал",
     "Ani.ru": "Ani",
     "Nauka.ru": "Наука 2.0",
     "InvestigationDiscovery.ru": "Investigation Discovery",
@@ -104,7 +106,6 @@ CATEGORY_NAMES = {
     # The playlist uses fewer, clearer groups than the upstream database.
     "news": "Общероссийские",
     "general": "Общероссийские",
-    "music": "Музыка",
     "movies": "Фильмы и сериалы",
     "series": "Фильмы и сериалы",
     "documentary": "Познавательные",
@@ -167,6 +168,10 @@ def is_excluded_channel(channel, title):
     if NONLOCAL_REGION_NAME_RE.search(title or ""):
         return True
     if "radio" in tags:
+        return True
+    if re.search(r"(?:радио|radio|\bFM\b)$", title or "", re.I):
+        return True
+    if "music" in tags:
         return True
     if "kids" in tags or CHILD_NAME_RE.search(title or ""):
         return True
@@ -513,11 +518,6 @@ def quality_score(value):
     return height * 10 + progressive
 
 def classify(channel_id, categories, feed, title=""):
-    # Local-only feeds are kept separate from nationwide channels.
-    areas = set(feed.get("broadcast_area") or [])
-    if "c/RU" not in areas and areas & {"s/RU-SPE", "s/RU-LEN"}:
-        return "Санкт-Петербург и Ленобласть"
-
     # Explicit editorial corrections take priority over imperfect source tags.
     if channel_id in CATEGORY_OVERRIDES:
         return CATEGORY_OVERRIDES[channel_id]
@@ -530,8 +530,6 @@ def classify(channel_id, categories, feed, title=""):
                 "outdoor", "auto", "cooking"}
             or EDUCATIONAL_NAME_RE.search(title or "")):
         return "Познавательные"
-    if tags & {"music"}:
-        return "Музыка"
     if tags & {"entertainment", "comedy", "family", "lifestyle"}:
         return "Развлекательные"
 
