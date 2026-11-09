@@ -61,6 +61,43 @@ jobs:
           print(f"Validated {len(main_groups)} main channels and {len(entries)} total playlist entries; {len(ids)} have EPG IDs")
           PY
 
+      - name: Validate merged EPG
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import gzip
+          import re
+          import xml.etree.ElementTree as ET
+          from datetime import datetime
+
+          path = Path("epg.xml.gz")
+          assert path.exists() and path.stat().st_size > 0, "Merged EPG file is missing or empty"
+          root = ET.fromstring(gzip.decompress(path.read_bytes()))
+          channels = {node.get("id") for node in root.findall("channel")}
+          programmes = root.findall("programme")
+          assert channels and programmes, "Merged EPG has no channels or programmes"
+          offsets = set()
+          intervals = {}
+          for node in programmes:
+              channel_id = node.get("channel")
+              assert channel_id in channels, f"Programme references missing channel {channel_id}"
+              for key in ("start", "stop"):
+                  value = node.get(key, "")
+                  match = re.search(r"([+-]\\d{4})$", value)
+                  assert match, f"Timestamp has no explicit offset: {value}"
+                  offsets.add(match.group(1))
+              start = datetime.strptime(node.get("start"), "%Y%m%d%H%M%S %z")
+              stop = datetime.strptime(node.get("stop"), "%Y%m%d%H%M%S %z")
+              assert stop > start, "Programme has non-positive duration"
+              intervals.setdefault(channel_id, []).append((start, stop))
+          assert offsets == {"+0300"}, f"EPG is not consistently Moscow time: {sorted(offsets)}"
+          for channel_id, items in intervals.items():
+              items.sort()
+              for previous, current in zip(items, items[1:]):
+                  assert previous[1] <= current[0], f"Overlapping programmes for {channel_id}"
+          print(f"Validated merged EPG: {len(channels)} channels, {len(programmes)} programmes, Moscow UTC+03:00, no overlaps")
+          PY
+
       - name: Commit updated playlist
         run: |
           git add playlist.m3u epg.xml.gz
