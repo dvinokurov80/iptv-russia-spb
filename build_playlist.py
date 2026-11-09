@@ -469,14 +469,6 @@ def build_merged_epg(chosen):
                 "candidate_epg_ids": sorted(candidates),
             })
             continue
-        else:
-            item.pop("epg_id", None)
-            item["epg_name"] = item.get("title", "")
-            unmatched += 1
-            unmatched_details.append({
-                "id": channel_id, "title": item.get("title", ""), "aliases": aliases
-            })
-
     # Publish a compact guide for the playlist's matched channels only.
     matched_ids = {item["epg_id"] for item in chosen.values() if item.get("epg_id")}
     final_root = ET.Element(
