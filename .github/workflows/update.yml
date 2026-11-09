@@ -49,7 +49,7 @@ jobs:
 
           main_entries = re.findall(r'^#EXTINF:.*?tvg-id="([^"]+)".*?group-title="([^"]+)"', data, re.M)
           main_ids = [channel_id for channel_id, group in main_entries if group != "Избранное"]
-          assert len(main_ids) >= 30, f"Only {len(main_ids)} unique main entries"
+          assert len(main_ids) >= 200, f"Only {len(main_ids)} unique main entries"
           assert len(main_ids) == len(set(main_ids)), "Duplicate channel IDs outside Favourites"
           print(f"Validated {len(main_ids)} unique channels and {len(entries)} total playlist entries")
           PY
