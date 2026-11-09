@@ -305,8 +305,10 @@ def apply_epg_ids(chosen):
                 name = normalize_epg_name(alias)
                 if name and alias_owners.get(name) == {channel_id}:
                     candidates.update(names_by_id.get(name, set()))
-            candidates -= used_ids
-            if len(candidates) == 1:
+            # Only accept a genuinely unique name match. Removing IDs
+            # already assigned to another channel before checking uniqueness
+            # can turn an ambiguous match into a false positive.
+            if len(candidates) == 1 and not (candidates & used_ids):
                 item["epg_id"] = next(iter(candidates))
                 item["epg_name"] = display_names_by_id.get(item["epg_id"], item.get("title", ""))
                 used_ids.add(item["epg_id"])
@@ -400,7 +402,8 @@ def looks_like_media_segment(data):
 
 
 def probe_hls(url):
-    manifest, _content_type = fetch_probe(url)
+    """Check a live HLS manifest and multiple recent media segments."""
+    manifest, _content_type = fetch_probe(url, timeout=10)
     if not manifest.lstrip().startswith(b"#EXTM3U"):
         return False
     text = manifest.decode("utf-8", errors="replace")
@@ -413,23 +416,39 @@ def probe_hls(url):
                 bandwidth = re.search(r"(?:AVERAGE-)?BANDWIDTH=(\d+)", line)
                 variants.append((int(bandwidth.group(1)) if bandwidth else 0, urljoin(url, uri)))
     if variants:
+        # Prefer the lowest advertised bitrate: it is less likely to stall
+        # on constrained connections and is the safest default for a playlist.
         variant_url = sorted(variants)[0][1]
-        manifest, _ = fetch_probe(variant_url)
+        manifest, _ = fetch_probe(variant_url, timeout=10)
         if not manifest.lstrip().startswith(b"#EXTM3U"):
             return False
         text = manifest.decode("utf-8", errors="replace")
         lines = [line.strip() for line in text.splitlines() if line.strip()]
     else:
         variant_url = url
+
     segments = [
         line for line in lines
         if not line.startswith("#") and not line.startswith("data:")
     ]
     if not segments:
         return None
-    segment_url = urljoin(variant_url, segments[-1])
-    segment, _ = fetch_probe(segment_url, byte_limit=65536)
-    return True if looks_like_media_segment(segment) else None
+
+    recent = segments[-3:]
+    valid = 0
+    for segment_path in recent:
+        try:
+            segment, _ = fetch_probe(urljoin(variant_url, segment_path),
+                                    byte_limit=65536, timeout=8)
+            if looks_like_media_segment(segment):
+                valid += 1
+        except (HTTPError, TimeoutError, URLError, OSError, ValueError):
+            continue
+
+    # A single successful segment is too weak a signal for a live stream.
+    # Accept one only when the manifest itself exposes just one segment.
+    required = min(2, len(recent))
+    return True if valid >= required else None
 
 
 def probe_stream(url):
@@ -472,12 +491,13 @@ def choose_healthy_streams(candidates_by_channel):
         ranked_by_channel[channel_id] = sorted(unique.values(), key=rank, reverse=True)
 
     chosen = {}
+    inconclusive_fallbacks = {}
     active = ranked_by_channel
     confirmed = removed = inconclusive = 0
     while active:
         batch = {channel_id: items[0] for channel_id, items in active.items()}
         checks = {}
-        with ThreadPoolExecutor(max_workers=24) as pool:
+        with ThreadPoolExecutor(max_workers=12) as pool:
             futures = {
                 pool.submit(probe_stream, item["url"]): channel_id
                 for channel_id, item in batch.items()
@@ -494,17 +514,30 @@ def choose_healthy_streams(candidates_by_channel):
             if result is True:
                 chosen[channel_id] = items[0]
                 confirmed += 1
-            elif len(items) > 1:
-                next_active[channel_id] = items[1:]
             else:
-                if result is None:
-                    inconclusive += 1
-                removed += 1
+                if result is None and channel_id not in inconclusive_fallbacks:
+                    inconclusive_fallbacks[channel_id] = items[0]
+                if len(items) > 1:
+                    next_active[channel_id] = items[1:]
+                else:
+                    if result is None:
+                        inconclusive += 1
+                    removed += 1
         active = next_active
+
+    # A timeout or unsupported container is not proof that a feed is dead.
+    # Keep the best-ranked inconclusive candidate only when no alternative
+    # for that channel passed or definitively failed all candidates.
+    fallback_count = 0
+    for channel_id, item in inconclusive_fallbacks.items():
+        if channel_id not in chosen:
+            chosen[channel_id] = item
+            fallback_count += 1
+
     print(
-        f"Segment-level stream check: {confirmed} confirmed, "
-        f"{removed} removed (including {inconclusive} inconclusive; "
-        f"no unverified fallback streams retained)"
+        f"Stream checks: {confirmed} multi-segment confirmed, "
+        f"{fallback_count} retained as inconclusive fallback, "
+        f"{removed} removed after all candidates failed"
     )
     return chosen
 
