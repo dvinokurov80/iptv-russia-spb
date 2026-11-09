@@ -284,9 +284,9 @@ def build_merged_epg(chosen):
                 }
                 if len(matches) == 1:
                     canonical_id = next(iter(matches))
-                elif old_id in channels_by_id:
-                    canonical_id = old_id
                 else:
+                    # XMLTV channel IDs are not globally unique across providers.
+                    # Never merge two sources merely because their opaque IDs collide.
                     canonical_id = old_id
                     if canonical_id in channels_by_id:
                         canonical_id = f"xmltv{source_index}_{old_id}"
@@ -418,7 +418,7 @@ def build_merged_epg(chosen):
             )
         for name, _lang in names:
             normalized = normalize_epg_name(name)
-            if normalized and normalized not in ambiguous_aliases:
+            if normalized:
                 names_by_id.setdefault(normalized, set()).add(channel_id)
 
     exact = by_name = unmatched = 0
@@ -431,26 +431,43 @@ def build_merged_epg(chosen):
             alias_owners.setdefault(alias, set()).add(channel_id)
 
     for channel_id, item in chosen.items():
-        if channel_id in programme_ids:
-            item["epg_id"] = channel_id
-            item["epg_name"] = display_names_by_id.get(channel_id, item.get("title", ""))
-            used_ids.add(channel_id)
-            exact += 1
-
-    for channel_id, item in chosen.items():
-        if "epg_id" in item:
-            continue
+        # Playlist source IDs and XMLTV IDs belong to different namespaces;
+        # only a verified display-name match may assign a guide ID.
         aliases = item.get("epg_names") or [item.get("title", "")]
+        normalized_aliases = {
+            normalize_epg_name(alias) for alias in aliases
+            if normalize_epg_name(alias) and alias_owners.get(normalize_epg_name(alias)) == {channel_id}
+        }
         candidates = set()
-        for alias in aliases:
-            name = normalize_epg_name(alias)
-            if name and alias_owners.get(name) == {channel_id}:
-                candidates.update(names_by_id.get(name, set()))
+        for name in normalized_aliases:
+            candidates.update(names_by_id.get(name, set()))
+
         if len(candidates) == 1 and not (candidates & used_ids):
-            item["epg_id"] = next(iter(candidates))
-            item["epg_name"] = display_names_by_id.get(item["epg_id"], item.get("title", ""))
-            used_ids.add(item["epg_id"])
+            epg_id = next(iter(candidates))
+            matched_names = [
+                child.text.strip()
+                for child in channels_by_id[epg_id].findall("display-name")
+                if child.text and normalize_epg_name(child.text) in normalized_aliases
+            ]
+            preferred = next(
+                (name for name in matched_names if has_cyrillic(name)),
+                matched_names[0] if matched_names else display_names_by_id.get(epg_id, item.get("title", ""))
+            )
+            item["epg_id"] = epg_id
+            item["epg_name"] = preferred
+            used_ids.add(epg_id)
             by_name += 1
+        else:
+            item.pop("epg_id", None)
+            item["epg_name"] = item.get("title", "")
+            unmatched += 1
+            unmatched_details.append({
+                "id": channel_id,
+                "title": item.get("title", ""),
+                "aliases": aliases,
+                "candidate_epg_ids": sorted(candidates),
+            })
+            continue
         else:
             item.pop("epg_id", None)
             item["epg_name"] = item.get("title", "")
