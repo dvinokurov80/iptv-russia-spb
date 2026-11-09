@@ -221,14 +221,14 @@ def apply_epg_ids(chosen):
                 offsets = {
                     match.group(1)
                     for value in programme_starts
-                    for match in [re.search(r"([+-]\\d{4})$", value)]
+                    for match in [re.search(r"([+-]\d{4})$", value)]
                     if match
                 }
                 if not programme_starts or offsets != {"+0300"}:
                     raise ValueError(
                         f"XMLTV timestamps are not consistently Moscow time (+0300): {sorted(offsets)}"
                     )
-                if any(not re.search(r"[+-]\\d{4}$", value) for value in programme_starts):
+                if any(not re.search(r"[+-]\d{4}$", value) for value in programme_starts):
                     raise ValueError("XMLTV contains programme times without an explicit UTC offset")
                 root = candidate_root
                 programme_ids = candidate_ids
