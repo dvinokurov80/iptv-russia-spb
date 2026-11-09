@@ -982,25 +982,12 @@ def main():
 
     chosen = choose_healthy_streams(candidates_by_channel)
 
-    # Select a second independently hosted feed explicitly declared as a
-    # Moscow-time main feed by its source metadata, or as an NGRCH base feed.
+    # Backup entries are disabled: the previously generated duplicate
+    # streams were not reliably playable in the user's Televizo player.
+    # Publish one verified primary stream per channel until real playback
+    # compatibility can be established for alternatives.
     backups = {}
-    for channel_id, primary in chosen.items():
-        primary_host = (urlsplit(primary["url"]).hostname or "").lower()
-        alternatives = [
-            item for item in candidates_by_channel.get(channel_id, [])
-            if (item.get("preferred_moscow") or item.get("backup_moscow"))
-            and item["url"] != primary["url"]
-            and (urlsplit(item["url"]).hostname or "").lower() != primary_host
-        ]
-        for candidate in alternatives:
-            if probe_stream(candidate["url"]) is True:
-                backups[channel_id] = candidate
-                break
-    print(
-        f"Independent Moscow-base backups confirmed: {len(backups)} "
-        f"of {len(chosen)} channels"
-    )
+    print("Backup streams disabled: publishing one primary entry per channel")
 
     # No manually injected URLs: every published stream must pass checks.
 
