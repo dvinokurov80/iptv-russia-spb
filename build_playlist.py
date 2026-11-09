@@ -210,9 +210,9 @@ def download_text(url):
     last_error = None
     # Large XMLTV feeds sometimes terminate the connection mid-download.
     # Retry transient transport and server errors before marking a source unavailable.
-    for attempt in range(4):
+    for attempt in range(2):
         try:
-            with urlopen(request, timeout=90) as response:
+            with urlopen(request, timeout=60) as response:
                 data = response.read()
             # Some XMLTV servers gzip-compress the body even when the URL has no .gz suffix.
             if data.startswith(bytes((31, 139))):
@@ -225,11 +225,11 @@ def download_text(url):
         except (URLError, TimeoutError, ConnectionError, OSError,
                 IncompleteRead, RemoteDisconnected, EOFError) as error:
             last_error = error
-        if attempt < 3:
-            delay = 2 ** (attempt + 1)
-            print(f"Download retry {attempt + 1}/3 in {delay}s: {url}: {last_error}")
+        if attempt < 1:
+            delay = 2
+            print(f"Download retry {attempt + 1}/1 in {delay}s: {url}: {last_error}")
             time.sleep(delay)
-    raise RuntimeError(f"Download failed after 4 attempts: {url}: {last_error}")
+    raise RuntimeError(f"Download failed after 2 attempts: {url}: {last_error}")
 
 def download_json(name):
     return json.loads(download_text(f"{API}/{name}.json"))
