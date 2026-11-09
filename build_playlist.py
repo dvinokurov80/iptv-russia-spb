@@ -408,7 +408,7 @@ def probe_hls(url):
                 bandwidth = re.search(r"(?:AVERAGE-)?BANDWIDTH=(\d+)", line)
                 variants.append((int(bandwidth.group(1)) if bandwidth else 0, urljoin(url, uri)))
     if variants:
-        variant_url = sorted(variants, reverse=True)[0][1]
+        variant_url = sorted(variants)[0][1]
         manifest, _ = fetch_probe(variant_url)
         if not manifest.lstrip().startswith(b"#EXTM3U"):
             return False
@@ -653,21 +653,7 @@ def main():
 
     chosen = choose_healthy_streams(candidates_by_channel)
 
-    # NTV Style is confirmed as a Russian, Moscow-time channel with an
-    # official NTV CDN stream, but some upstream playlist mirrors omit tvg-id.
-    # Keep this single reviewed fallback so it is not lost during discovery.
-    if "NTVStyle.ru" not in chosen:
-        chosen["NTVStyle.ru"] = {
-            "channel_id": "NTVStyle.ru",
-            "extinf": '#EXTINF:-1 tvg-id="NTVStyle.ru@SD",НТВ Стиль',
-            "url": "https://cdn.ntv.ru/th_style/playlist.m3u8",
-            "title": "НТВ Стиль",
-            "epg_names": ["НТВ Стиль", "NTV Style", "NTV Style HD"],
-            "group": "Развлекательные",
-            "score": 5760,
-            "main": True,
-            "area": {"c/RU"},
-        }
+    # No manually injected URLs: all published channels must pass stream checks.
 
     apply_epg_ids(chosen)
 
