@@ -570,6 +570,19 @@ def clean_extinf(extinf, channel_id, group, title, epg_id=None, epg_name=None):
     head += f' group-title="{group}"'
     return head + "," + title
 
+def is_blocked_provider_stream(url):
+    """Reject known Wink/Zabava NGENIX delivery URLs reported unplayable by the user."""
+    value = (url or "").casefold()
+    host = (urlsplit(value).hostname or "").casefold()
+    return (
+        "ngenix.net" in host
+        or host.endswith("wink.ru")
+        or host.endswith(".wink.ru")
+        or "zabava-htlive" in host
+        or "wink-htlive" in host
+    )
+
+
 def fetch_probe(url, byte_limit=262144, timeout=12):
     request = Request(url, headers={
         "User-Agent": "Mozilla/5.0 (compatible; IPTVPlaylistHealthCheck/2.0)",
@@ -674,12 +687,9 @@ def choose_healthy_streams(candidates_by_channel):
             previous = unique.get(item["url"])
             if previous is None or item["score"] > previous["score"]:
                 unique[item["url"]] = item
-        # If NGRCH supplied an explicitly unshifted base feed, do not
-        # silently replace it with an unclassified mirror just because the
-        # mirror advertises a higher resolution or responds faster.
-        preferred = [item for item in unique.values() if item.get("preferred_moscow")]
-        if preferred:
-            unique = {item["url"]: item for item in preferred}
+        # Prefer explicitly unshifted Moscow feeds, but retain all other
+        # eligible Moscow candidates as failover options if the preferred
+        # provider is blocked or fails the segment-level health check.
         def rank(item):
             url = item["url"].lower().split("?", 1)[0]
             protocol = 30000 if url.endswith(".m3u8") else (-30000 if url.endswith(".mpd") else 0)
@@ -847,9 +857,13 @@ def main():
     candidates_by_channel = {}
     skipped_no_metadata = 0
     skipped_time_area = 0
+    skipped_blocked_provider = 0
 
     for extinf, url in source_entries:
         if not url.startswith(("http://", "https://")):
+            continue
+        if is_blocked_provider_stream(url):
+            skipped_blocked_provider += 1
             continue
         if any(marker in (extinf + " " + url).lower()
                for marker in ("[geo-blocked]", "[not 24/7]", "[offline]", "[broken]")):
@@ -927,6 +941,8 @@ def main():
             continue
         if not url.startswith(("http://", "https://")):
             continue
+        if is_blocked_provider_stream(url):
+            continue
         key = channel_name_key(base_title)
         matched_ids = channel_name_index.get(key, set())
         if len(matched_ids) != 1:
@@ -979,6 +995,10 @@ def main():
         f"for {len(ngrch_preferred)} channels; "
         "regional time-shift variants excluded"
     )
+    print(
+        f"Blocked known Wink/Zabava NGENIX streams: "
+        f"{skipped_blocked_provider}"
+    )
 
     chosen = choose_healthy_streams(candidates_by_channel)
 
@@ -1026,16 +1046,7 @@ def main():
         )
         output.extend((extinf, backup["url"]))
 
-    # Favourites remain a separate convenience group.
-    for channel_id, item in sorted(chosen.items(), key=lambda pair: pair[1]["title"].casefold()):
-        if item["title"] in FAVOURITES:
-            output.extend((
-                clean_extinf(
-                    item["extinf"], channel_id, "Избранное", item["title"],
-                    item.get("epg_id"), item.get("epg_name")
-                ),
-                item["url"],
-            ))
+    # Publish each channel exactly once; no duplicated favourites group.
 
     OUTPUT.write_text("\n".join(output) + "\n", encoding="utf-8")
     print(
