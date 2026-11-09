@@ -10,6 +10,8 @@ from urllib.parse import urljoin, urlsplit
 import gzip
 import json
 import re
+import time
+from http.client import IncompleteRead, RemoteDisconnected
 import xml.etree.ElementTree as ET
 
 SOURCES = {
@@ -26,6 +28,7 @@ EPG_URLS = (
     "http://epg.one/epg2.xml.gz",
     "http://epg.one/ru2.xml.gz",
     "https://iptvx.one/EPG_LITE",
+    "https://iptvx.one/epg/epg.xml.gz",
     "http://download.teleguide.su/download/new3/xmltv.xml.gz",
     "http://programtv.ru/xmltv.xml.gz",
 )
@@ -202,13 +205,30 @@ def is_excluded_channel(channel, title):
     return False
 
 def download_text(url):
-    request = Request(url, headers={"User-Agent": "iptv-russia-spb-playlist/2.0"})
-    with urlopen(request, timeout=60) as response:
-        data = response.read()
-    # Some XMLTV servers gzip-compress the body even when the URL has no .gz suffix.
-    if data.startswith(bytes((31, 139))):
-        data = gzip.decompress(data)
-    return data.decode("utf-8-sig", errors="replace")
+    request = Request(url, headers={"User-Agent": "iptv-russia-spb-playlist/2.1"})
+    last_error = None
+    # Large XMLTV feeds sometimes terminate the connection mid-download.
+    # Retry transient transport and server errors before marking a source unavailable.
+    for attempt in range(4):
+        try:
+            with urlopen(request, timeout=90) as response:
+                data = response.read()
+            # Some XMLTV servers gzip-compress the body even when the URL has no .gz suffix.
+            if data.startswith(bytes((31, 139))):
+                data = gzip.decompress(data)
+            return data.decode("utf-8-sig", errors="replace")
+        except HTTPError as error:
+            last_error = error
+            if error.code not in (408, 425, 429, 500, 502, 503, 504):
+                raise
+        except (URLError, TimeoutError, ConnectionError, OSError,
+                IncompleteRead, RemoteDisconnected, EOFError) as error:
+            last_error = error
+        if attempt < 3:
+            delay = 2 ** (attempt + 1)
+            print(f"Download retry {attempt + 1}/3 in {delay}s: {url}: {last_error}")
+            time.sleep(delay)
+    raise RuntimeError(f"Download failed after 4 attempts: {url}: {last_error}")
 
 def download_json(name):
     return json.loads(download_text(f"{API}/{name}.json"))
