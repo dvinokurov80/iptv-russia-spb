@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths-ignore:
       - "playlist.m3u"
+      - "epg.xml.gz"
   workflow_dispatch:
   schedule:
     - cron: "17 3 * * *"
