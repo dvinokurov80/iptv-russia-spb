@@ -31,6 +31,7 @@ EPG_URLS = (
     "https://iptvx.one/epg/epg.xml.gz",
     "http://download.teleguide.su/download/new3/xmltv.xml.gz",
     "http://programtv.ru/xmltv.xml.gz",
+    "https://iptv-epg.org/files/epg-ru.xml.gz",
 )
 EPG_URL = "https://raw.githubusercontent.com/dvinokurov80/iptv-russia-spb/main/epg.xml.gz"
 EPG_OUTPUT = Path("epg.xml.gz")
