@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.error import HTTPError, URLError
+from urllib.parse import urljoin
 import gzip
 import json
 import re
@@ -33,7 +34,7 @@ OUTPUT = Path("playlist.m3u")
 # or Leningrad Oblast are accepted. Every accepted feed must be Moscow-time.
 ALLOWED_AREAS = {"c/RU", "s/RU-SPE", "s/RU-LEN"}
 REQUIRED_TIMEZONE = "Europe/Moscow"
-MIN_UNIQUE_CHANNELS = 200
+MIN_UNIQUE_CHANNELS = 100
 
 # Exclude known non-local regional channels, children's channels missed by
 # imperfect source tags, and radio stations from this TV-only playlist.
@@ -372,35 +373,86 @@ def clean_extinf(extinf, channel_id, group, title, epg_id=None, epg_name=None):
     head += f' group-title="{group}"'
     return head + "," + title
 
-def probe_stream(url):
-    """Return True for a responding stream, False for a clearly dead URL, None if inconclusive."""
+def fetch_probe(url, byte_limit=262144, timeout=12):
     request = Request(url, headers={
-        "User-Agent": "Mozilla/5.0 (compatible; IPTVPlaylistHealthCheck/1.0)",
-        "Range": "bytes=0-2047",
+        "User-Agent": "Mozilla/5.0 (compatible; IPTVPlaylistHealthCheck/2.0)",
+        "Accept": "*/*",
+        "Range": "bytes=0-" + str(byte_limit - 1),
     })
+    with urlopen(request, timeout=timeout) as response:
+        status = getattr(response, "status", 200)
+        if status < 200 or status >= 300:
+            raise ValueError("HTTP " + str(status))
+        return response.read(byte_limit), response.headers.get("Content-Type", "").lower()
+
+
+def looks_like_media_segment(data):
+    if not data or len(data) < 188:
+        return False
+    if data[0] == 0x47 and (len(data) < 377 or data[188] == 0x47):
+        return True
+    return any(box in data[:512] for box in (b"ftyp", b"styp", b"moof", b"mdat"))
+
+
+def probe_hls(url):
+    manifest, _content_type = fetch_probe(url)
+    if not manifest.lstrip().startswith(b"#EXTM3U"):
+        return False
+    text = manifest.decode("utf-8", errors="replace")
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    variants = []
+    for index, line in enumerate(lines[:-1]):
+        if line.startswith("#EXT-X-STREAM-INF:"):
+            uri = lines[index + 1]
+            if not uri.startswith("#"):
+                bandwidth = re.search(r"(?:AVERAGE-)?BANDWIDTH=(\d+)", line)
+                variants.append((int(bandwidth.group(1)) if bandwidth else 0, urljoin(url, uri)))
+    if variants:
+        variant_url = sorted(variants, reverse=True)[0][1]
+        manifest, _ = fetch_probe(variant_url)
+        if not manifest.lstrip().startswith(b"#EXTM3U"):
+            return False
+        text = manifest.decode("utf-8", errors="replace")
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+    else:
+        variant_url = url
+    segments = [
+        line for line in lines
+        if not line.startswith("#") and not line.startswith("data:")
+    ]
+    if not segments:
+        return None
+    segment_url = urljoin(variant_url, segments[-1])
+    segment, _ = fetch_probe(segment_url, byte_limit=65536)
+    return True if looks_like_media_segment(segment) else None
+
+
+def probe_stream(url):
+    """Check a media manifest and at least one segment where possible."""
     try:
-        with urlopen(request, timeout=7) as response:
-            status = getattr(response, "status", 200)
-            sample = response.read(2048)
-            if status in (404, 410, 451):
-                return False
-            if ".m3u8" in url.lower() and sample:
-                prefix = sample.lstrip()[:256].lower()
-                if prefix.startswith((b"<!doctype html", b"<html", b"<head")):
-                    return False
-                if not sample.lstrip().startswith(b"#EXTM3U"):
-                    return None
+        lower = url.lower().split("?", 1)[0]
+        if lower.endswith(".mpd"):
+            return None
+        if lower.endswith(".m3u8"):
+            return probe_hls(url)
+        data, content_type = fetch_probe(url, byte_limit=65536)
+        if data.lstrip().startswith(b"#EXTM3U"):
+            return probe_hls(url)
+        if looks_like_media_segment(data):
             return True
+        if any(token in content_type for token in ("video/", "application/octet-stream")):
+            return None
+        return False
     except HTTPError as error:
         if error.code in (404, 410, 451):
             return False
         return None
-    except (TimeoutError, URLError, OSError):
+    except (TimeoutError, URLError, OSError, ValueError):
         return None
 
 
 def choose_healthy_streams(candidates_by_channel):
-    """Check each channel's best stream first; probe fallbacks only when needed."""
+    """Prefer HLS and retain only streams with a segment-level confirmation."""
     ranked_by_channel = {}
     for channel_id, items in candidates_by_channel.items():
         unique = {}
@@ -408,19 +460,19 @@ def choose_healthy_streams(candidates_by_channel):
             previous = unique.get(item["url"])
             if previous is None or item["score"] > previous["score"]:
                 unique[item["url"]] = item
-        ranked_by_channel[channel_id] = sorted(
-            unique.values(), key=lambda item: item["score"], reverse=True
-        )
+        def rank(item):
+            url = item["url"].lower().split("?", 1)[0]
+            protocol = 30000 if url.endswith(".m3u8") else (-30000 if url.endswith(".mpd") else 0)
+            return protocol + item["score"]
+        ranked_by_channel[channel_id] = sorted(unique.values(), key=rank, reverse=True)
 
     chosen = {}
-    uncertain = {}
     active = ranked_by_channel
-    confirmed = unknown = removed = 0
-
+    confirmed = removed = inconclusive = 0
     while active:
         batch = {channel_id: items[0] for channel_id, items in active.items()}
         checks = {}
-        with ThreadPoolExecutor(max_workers=32) as pool:
+        with ThreadPoolExecutor(max_workers=24) as pool:
             futures = {
                 pool.submit(probe_stream, item["url"]): channel_id
                 for channel_id, item in batch.items()
@@ -431,31 +483,26 @@ def choose_healthy_streams(candidates_by_channel):
                     checks[channel_id] = future.result()
                 except Exception:
                     checks[channel_id] = None
-
         next_active = {}
         for channel_id, items in active.items():
-            item = items[0]
             result = checks.get(channel_id)
             if result is True:
-                chosen[channel_id] = item
+                chosen[channel_id] = items[0]
                 confirmed += 1
-                continue
-            if result is None and channel_id not in uncertain:
-                uncertain[channel_id] = item
-            if len(items) > 1:
+            elif len(items) > 1:
                 next_active[channel_id] = items[1:]
-            elif channel_id in uncertain:
-                chosen[channel_id] = uncertain[channel_id]
-                unknown += 1
             else:
+                if result is None:
+                    inconclusive += 1
                 removed += 1
         active = next_active
-
     print(
-        f"Stream check: {confirmed} confirmed responding, "
-        f"{unknown} inconclusive retained, {removed} channels removed"
+        f"Segment-level stream check: {confirmed} confirmed, "
+        f"{removed} removed (including {inconclusive} inconclusive; "
+        f"no unverified fallback streams retained)"
     )
     return chosen
+
 
 def quality_score(value):
     match = re.search(r'(\d{3,4})\s*([pi])?', str(value or "").lower())
