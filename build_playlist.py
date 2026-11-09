@@ -307,7 +307,7 @@ def apply_epg_ids(chosen):
                 used_ids.add(item["epg_id"])
                 by_name += 1
             else:
-                item["epg_id"] = channel_id
+                item.pop("epg_id", None)
                 item["epg_name"] = item.get("title", "")
                 unmatched += 1
                 unmatched_details.append({
@@ -365,7 +365,7 @@ def clean_extinf(extinf, channel_id, group, title, epg_id=None, epg_name=None):
     # which can make IPTV players reject the entire M3U document.
     metadata = attrs(extinf)
     logo = metadata.get("tvg-logo", "")
-    head = f'#EXTINF:-1 tvg-id="{epg_id or channel_id}"'
+    head = f'#EXTINF:-1 tvg-id="{epg_id}"' if epg_id else "#EXTINF:-1"
     if logo:
         head += f' tvg-logo="{logo}"'
     safe_tvg_name = (epg_name or title).replace('"', "").strip()
