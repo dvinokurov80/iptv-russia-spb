@@ -62,7 +62,7 @@ jobs:
 
       - name: Commit updated playlist
         run: |
-          git add playlist.m3u
+          git add playlist.m3u epg.xml.gz
           if git diff --cached --quiet; then
             echo "Playlist has not changed."
             exit 0
