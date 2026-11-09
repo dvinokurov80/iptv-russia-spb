@@ -41,6 +41,8 @@ EXCLUDED_CHANNEL_IDS = {
     "Moymir.ru", "Tonus.ru",
     # Other-region and foreign-language channels are outside this playlist.
     "360-podmoskovye", "360-podmoskovie", "360-news", "krym24", "moskva-24", "RTBalkan.ru",
+    # Explicit non-SPB regional channels found in the published playlist.
+    "360.ru", "360News.ru", "Crimea24.ru", "106",
 }
 
 # Additional verified names used only for matching XMLTV IDs.
@@ -89,7 +91,7 @@ NAME_OVERRIDES = {
 
 FAVOURITES = {
     "Первый канал", "Россия 1", "НТВ", "СТС", "ТНТ",
-    "Пятница!", "Россия 24", "Матч ТВ",
+    "Пятница!", "Россия 24",
 }
 
 # Categories are deliberately broad and user-facing. General federal and
@@ -123,6 +125,7 @@ CATEGORY_OVERRIDES = {
     "NationalGeographic.ru": "Познавательные",
     "NationalGeographicWild.ru": "Познавательные",
     "InvestigationDiscovery.ru": "Познавательные",
+    "300105": "Познавательные",  # Наука 2.0
     "NTVHit.ru": "Фильмы и сериалы",
     "NTVSeries.ru": "Фильмы и сериалы",
     "NTVStyle.ru": "Развлекательные",
@@ -146,12 +149,19 @@ FILM_SERIES_NAME_RE = re.compile(
 EDUCATIONAL_NAME_RE = re.compile(
     r"(наук|science|discovery|географ|geographic|travel|путешеств|"
     r"adventure|рыбал|рыболов|fishing|охот|hunting|природ|nature|"
-    r"животн|animal|океан|ocean|истори|history|планет)", re.I
+    r"животн|animal|океан|ocean|истори|history|планет|зоопарк|"
+    r"зоо\s*тв|боб[её]р|усадьб|загородн|приключен|большая\s+азия)", re.I
+)
+NONLOCAL_REGION_NAME_RE = re.compile(
+    r"(?:^|\s)(?:360(?:°)?(?:\s+новости)?|крым\s*24|москва\s*24)(?:$|\s)",
+    re.I
 )
 
 def is_excluded_channel(channel, title):
     tags = set(channel.get("categories") or [])
     if channel.get("id") in EXCLUDED_CHANNEL_IDS:
+        return True
+    if NONLOCAL_REGION_NAME_RE.search(title or ""):
         return True
     if "radio" in tags:
         return True
