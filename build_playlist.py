@@ -988,6 +988,7 @@ def main():
     # compatibility can be established for alternatives.
     backups = {}
     print("Backup streams disabled: publishing one primary entry per channel")
+    # Rebuild trigger: retry publication after the previous run produced no job.
 
     # No manually injected URLs: every published stream must pass checks.
 
