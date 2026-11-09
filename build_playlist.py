@@ -56,6 +56,22 @@ EPG_NAME_ALIASES = {
     "OTR.ru": ["ОТР", "ОТР HD"],
 }
 
+# NGRCH explicitly separates the base nationwide feeds from regional
+# time-shifted variants (+2/+4/+7). Match its Russian names to iptv-org
+# channel records; the first unshifted entry is the preferred Moscow feed.
+NGRCH_NAME_ALIASES = {
+    "первый": ["первый канал", "channel one", "1tv"],
+    "россия 1": ["россия1", "russia 1", "rossiya 1"],
+    "матч!": ["матч", "match tv"],
+    "пятый": ["пятый канал", "5 канал", "пятый"],
+    "россия к": ["культура", "россия культура"],
+    "россия 24": ["россия24", "russia 24"],
+    "тв центр": ["твц", "tv center", "tvc"],
+    "рен тв": ["рентв", "ren tv"],
+    "тв3": ["тв 3", "tv3"],
+    "пятница": ["пятница!"],
+}
+
 NAME_OVERRIDES = {
     "ChannelOne.ru": "Первый канал",
     "Ani.ru": "Ani",
@@ -484,10 +500,17 @@ def choose_healthy_streams(candidates_by_channel):
             previous = unique.get(item["url"])
             if previous is None or item["score"] > previous["score"]:
                 unique[item["url"]] = item
+        # If NGRCH supplied an explicitly unshifted base feed, do not
+        # silently replace it with an unclassified mirror just because the
+        # mirror advertises a higher resolution or responds faster.
+        preferred = [item for item in unique.values() if item.get("preferred_moscow")]
+        if preferred:
+            unique = {preferred[0]["url"]: preferred[0]}
         def rank(item):
             url = item["url"].lower().split("?", 1)[0]
             protocol = 30000 if url.endswith(".m3u8") else (-30000 if url.endswith(".mpd") else 0)
-            return protocol + item["score"]
+            source_priority = 100000 if item.get("preferred_moscow") else 0
+            return source_priority + protocol + item["score"]
         ranked_by_channel[channel_id] = sorted(unique.values(), key=rank, reverse=True)
 
     chosen = {}
@@ -607,10 +630,39 @@ def main():
             eligible_by_channel.setdefault(channel_id, []).append(feed)
 
     source_entries = []
+    ngrch_entries = []
     for label, url in SOURCES.items():
         parsed = list(parse_m3u(download_text(url)))
         print(f"Loaded {len(parsed)} entries from {label}")
         source_entries.extend(parsed)
+        if label == "community_ngrch":
+            ngrch_entries = parsed
+
+    # Index canonical channel names and known Russian aliases. NGRCH uses
+    # short ids such as "sts"/"tnt", so matching by its display name is safer
+    # than treating those ids as iptv-org ids.
+    def channel_name_key(value):
+        return normalize_epg_name(re.sub(r"\\s*\\(\\d+\\)\\s*$", "", value or ""))
+
+    channel_name_index = {}
+    for known_id, known_channel in channels.items():
+        known_names = [
+            known_channel.get("name", ""),
+            known_channel.get("native_name", ""),
+            * (known_channel.get("alt_names") or []),
+            NAME_OVERRIDES.get(known_id, ""),
+        ]
+        for known_name in known_names:
+            key = channel_name_key(known_name)
+            if key:
+                channel_name_index.setdefault(key, set()).add(known_id)
+    for base_name, aliases in NGRCH_NAME_ALIASES.items():
+        key = channel_name_key(base_name)
+        matched = set(channel_name_index.get(key, set()))
+        for alias in aliases:
+            matched.update(channel_name_index.get(channel_name_key(alias), set()))
+        if len(matched) == 1:
+            channel_name_index[key] = matched
 
     # Build one best-quality entry per channel. No regional feeds outside
     # Saint Petersburg/Leningrad and no feeds with non-Moscow time zones.
@@ -681,6 +733,61 @@ def main():
             "area": set(feed.get("broadcast_area") or []),
         }
         candidates_by_channel.setdefault(channel_id, []).append(candidate)
+
+    # Add the first unshifted NGRCH feed for each uniquely matched channel.
+    # Explicit regional groups and labels (+1/+2/+3/+4/+5/+7) are never eligible.
+    ngrch_preferred = {}
+    for extinf, url in ngrch_entries:
+        metadata = attrs(extinf)
+        group_title = metadata.get("group-title", "").strip().casefold()
+        raw_title = extinf.rsplit(",", 1)[-1].strip()
+        base_title = re.sub(r"\\s*\\(\\d+\\)\\s*$", "", raw_title).strip()
+        if "региональн" in group_title:
+            continue
+        if re.search(r"\\s[+-]\\s?\\d+\\s*$", base_title):
+            continue
+        if not url.startswith(("http://", "https://")):
+            continue
+        key = channel_name_key(base_title)
+        matched_ids = channel_name_index.get(key, set())
+        if len(matched_ids) != 1:
+            continue
+        channel_id = next(iter(matched_ids))
+        if channel_id in ngrch_preferred:
+            continue
+        channel = channels.get(channel_id)
+        eligible = eligible_by_channel.get(channel_id, [])
+        main_feeds = [feed for feed in eligible if feed.get("is_main")]
+        if not channel or not main_feeds:
+            continue
+        title = NAME_OVERRIDES.get(channel_id) or display_name(extinf, metadata, channel)
+        if not title or is_excluded_channel(channel, title):
+            continue
+        feed = main_feeds[0]
+        epg_names = [
+            title, metadata.get("tvg-name", ""), raw_title,
+            channel.get("name", ""), channel.get("native_name", ""),
+        ] + (channel.get("alt_names") or []) + EPG_NAME_ALIASES.get(channel_id, [])
+        ngrch_preferred[channel_id] = {
+            "channel_id": channel_id,
+            "extinf": extinf,
+            "url": url,
+            "title": title,
+            "epg_names": list(dict.fromkeys(name for name in epg_names if name)),
+            "group": classify(channel_id, channel.get("categories"), feed, title),
+            "score": quality_score(feed.get("format")),
+            "main": True,
+            "area": set(feed.get("broadcast_area") or []),
+            "preferred_moscow": True,
+        }
+
+    for channel_id, item in ngrch_preferred.items():
+        candidates_by_channel[channel_id] = [item]
+
+    print(
+        f"NGRCH unshifted Moscow-base feeds matched: {len(ngrch_preferred)}; "
+        "regional (+1/+2/+3/+4/+5/+7) variants excluded"
+    )
 
     chosen = choose_healthy_streams(candidates_by_channel)
 
