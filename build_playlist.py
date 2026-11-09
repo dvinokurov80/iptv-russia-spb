@@ -665,7 +665,11 @@ def choose_healthy_streams(candidates_by_channel):
         def rank(item):
             url = item["url"].lower().split("?", 1)[0]
             protocol = 30000 if url.endswith(".m3u8") else (-30000 if url.endswith(".mpd") else 0)
-            source_priority = 100000 if item.get("preferred_moscow") else 0
+            source_priority = (
+                100000 if item.get("preferred_moscow")
+                else 50000 if item.get("backup_moscow")
+                else 0
+            )
             return source_priority + protocol + item["score"]
         ranked_by_channel[channel_id] = sorted(unique.values(), key=rank, reverse=True)
 
@@ -886,6 +890,7 @@ def main():
             "group": group,
             "score": score,
             "main": bool(feed.get("is_main")),
+            "backup_moscow": bool(feed.get("is_main")),
             "area": set(feed.get("broadcast_area") or []),
         }
         candidates_by_channel.setdefault(channel_id, []).append(candidate)
@@ -940,7 +945,15 @@ def main():
             bucket.append(item)
 
     for channel_id, items in ngrch_preferred.items():
-        candidates_by_channel[channel_id] = items
+        # Keep independently hosted iptv-org feeds as possible backups. The
+        # primary chooser still prefers the explicitly unshifted NGRCH base.
+        merged = list(items)
+        seen_urls = {item["url"] for item in merged}
+        for candidate in candidates_by_channel.get(channel_id, []):
+            if candidate.get("backup_moscow") and candidate["url"] not in seen_urls:
+                merged.append(candidate)
+                seen_urls.add(candidate["url"])
+        candidates_by_channel[channel_id] = merged
 
     print(
         f"NGRCH unshifted Moscow-base feeds matched: "
@@ -951,14 +964,14 @@ def main():
 
     chosen = choose_healthy_streams(candidates_by_channel)
 
-    # Select a second independently hosted, explicitly unshifted NGRCH base
-    # feed where one exists. A second URL on the same host is not independent.
+    # Select a second independently hosted feed explicitly declared as a
+    # Moscow-time main feed by its source metadata, or as an NGRCH base feed.
     backups = {}
     for channel_id, primary in chosen.items():
         primary_host = (urlsplit(primary["url"]).hostname or "").lower()
         alternatives = [
             item for item in candidates_by_channel.get(channel_id, [])
-            if item.get("preferred_moscow")
+            if (item.get("preferred_moscow") or item.get("backup_moscow"))
             and item["url"] != primary["url"]
             and (urlsplit(item["url"]).hostname or "").lower() != primary_host
         ]
