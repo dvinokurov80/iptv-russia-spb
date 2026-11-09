@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 import gzip
 import json
 import re
@@ -505,7 +505,7 @@ def choose_healthy_streams(candidates_by_channel):
         # mirror advertises a higher resolution or responds faster.
         preferred = [item for item in unique.values() if item.get("preferred_moscow")]
         if preferred:
-            unique = {preferred[0]["url"]: preferred[0]}
+            unique = {item["url"]: item for item in preferred}
         def rank(item):
             url = item["url"].lower().split("?", 1)[0]
             protocol = 30000 if url.endswith(".m3u8") else (-30000 if url.endswith(".mpd") else 0)
@@ -642,7 +642,7 @@ def main():
     # short ids such as "sts"/"tnt", so matching by its display name is safer
     # than treating those ids as iptv-org ids.
     def channel_name_key(value):
-        return normalize_epg_name(re.sub(r"\\s*\\(\\d+\\)\\s*$", "", value or ""))
+        return normalize_epg_name(re.sub(r"\s*\(\d+\)\s*$", "", value or ""))
 
     channel_name_index = {}
     for known_id, known_channel in channels.items():
@@ -741,10 +741,10 @@ def main():
         metadata = attrs(extinf)
         group_title = metadata.get("group-title", "").strip().casefold()
         raw_title = extinf.rsplit(",", 1)[-1].strip()
-        base_title = re.sub(r"\\s*\\(\\d+\\)\\s*$", "", raw_title).strip()
-        if "региональн" in group_title:
+        base_title = re.sub(r"\s*\(\d+\)\s*$", "", raw_title).strip()
+        if group_title != "основные":
             continue
-        if re.search(r"\\s[+-]\\s?\\d+\\s*$", base_title):
+        if re.search(r"\s[+-]\s?\d+\s*$", raw_title):
             continue
         if not url.startswith(("http://", "https://")):
             continue
@@ -753,8 +753,6 @@ def main():
         if len(matched_ids) != 1:
             continue
         channel_id = next(iter(matched_ids))
-        if channel_id in ngrch_preferred:
-            continue
         channel = channels.get(channel_id)
         eligible = eligible_by_channel.get(channel_id, [])
         main_feeds = [feed for feed in eligible if feed.get("is_main")]
@@ -768,7 +766,7 @@ def main():
             title, metadata.get("tvg-name", ""), raw_title,
             channel.get("name", ""), channel.get("native_name", ""),
         ] + (channel.get("alt_names") or []) + EPG_NAME_ALIASES.get(channel_id, [])
-        ngrch_preferred[channel_id] = {
+        item = {
             "channel_id": channel_id,
             "extinf": extinf,
             "url": url,
@@ -779,21 +777,48 @@ def main():
             "main": True,
             "area": set(feed.get("broadcast_area") or []),
             "preferred_moscow": True,
+            "source": "NGRCH",
         }
+        bucket = ngrch_preferred.setdefault(channel_id, [])
+        if all(existing["url"] != url for existing in bucket):
+            bucket.append(item)
 
-    for channel_id, item in ngrch_preferred.items():
-        candidates_by_channel[channel_id] = [item]
+    for channel_id, items in ngrch_preferred.items():
+        candidates_by_channel[channel_id] = items
 
     print(
-        f"NGRCH unshifted Moscow-base feeds matched: {len(ngrch_preferred)}; "
-        "regional (+1/+2/+3/+4/+5/+7) variants excluded"
+        f"NGRCH unshifted Moscow-base feeds matched: "
+        f"{sum(len(items) for items in ngrch_preferred.values())} URLs "
+        f"for {len(ngrch_preferred)} channels; "
+        "regional time-shift variants excluded"
     )
 
     chosen = choose_healthy_streams(candidates_by_channel)
 
-    # No manually injected URLs: all published channels must pass stream checks.
+    # Select a second independently hosted, explicitly unshifted NGRCH base
+    # feed where one exists. A second URL on the same host is not independent.
+    backups = {}
+    for channel_id, primary in chosen.items():
+        primary_host = (urlsplit(primary["url"]).hostname or "").lower()
+        alternatives = [
+            item for item in candidates_by_channel.get(channel_id, [])
+            if item.get("preferred_moscow")
+            and item["url"] != primary["url"]
+            and (urlsplit(item["url"]).hostname or "").lower() != primary_host
+        ]
+        for candidate in alternatives:
+            if probe_stream(candidate["url"]) is True:
+                backups[channel_id] = candidate
+                break
+    print(
+        f"Independent Moscow-base backups confirmed: {len(backups)} "
+        f"of {len(chosen)} channels"
+    )
+
+    # No manually injected URLs: every published stream must pass checks.
 
     apply_epg_ids(chosen)
+    apply_epg_ids(backups)
 
     if len(chosen) < MIN_UNIQUE_CHANNELS:
         raise RuntimeError(
@@ -810,8 +835,19 @@ def main():
         )
         output.extend((extinf, item["url"]))
 
-    # Favourites are a convenience category; the main channel entries remain
-    # unique and are not duplicated in different quality variants.
+    # Add a second source directly after each primary channel entry so the
+    # player presents an immediately adjacent manual failover option.
+    for channel_id, item in sorted(chosen.items(), key=lambda pair: (pair[1]["group"], pair[1]["title"].casefold())):
+        backup = backups.get(channel_id)
+        if not backup:
+            continue
+        extinf = clean_extinf(
+            backup["extinf"], channel_id, backup["group"], backup["title"],
+            backup.get("epg_id"), backup.get("epg_name")
+        )
+        output.extend((extinf, backup["url"]))
+
+    # Favourites remain a separate convenience group.
     for channel_id, item in sorted(chosen.items(), key=lambda pair: pair[1]["title"].casefold()):
         if item["title"] in FAVOURITES:
             output.extend((
