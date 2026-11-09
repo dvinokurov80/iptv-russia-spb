@@ -20,7 +20,10 @@ SOURCES = {
     "len": "https://iptv-org.github.io/iptv/subdivisions/ru-len.m3u",
 }
 API = "https://iptv-org.github.io/api"
-EPG_URLS = ("https://iptvx.one/EPG", "http://epg.one/ru.xml.gz")
+EPG_URLS = (
+    "http://download.teleguide.su/download/new3/xmltv.xml.gz",
+    "http://programtv.ru/xmltv.xml.gz",
+)
 EPG_URL = EPG_URLS[0]
 OUTPUT = Path("playlist.m3u")
 
@@ -28,7 +31,7 @@ OUTPUT = Path("playlist.m3u")
 # or Leningrad Oblast are accepted. Every accepted feed must be Moscow-time.
 ALLOWED_AREAS = {"c/RU", "s/RU-SPE", "s/RU-LEN"}
 REQUIRED_TIMEZONE = "Europe/Moscow"
-MIN_UNIQUE_CHANNELS = 30
+MIN_UNIQUE_CHANNELS = 200
 
 # Exclude known non-local regional channels, children's channels missed by
 # imperfect source tags, and radio stations from this TV-only playlist.
@@ -36,6 +39,8 @@ EXCLUDED_CHANNEL_IDS = {
     "Kuban24.ru", "Tavriya.ru", "NTS.ru", "ZaTV.ru", "Istoki.ru",
     "ShayanTV.ru", "VestiFM.ru", "GovoritMoskva.ru", "RadioRossii.ru",
     "Moymir.ru", "Tonus.ru",
+    # Other-region and foreign-language channels are outside this playlist.
+    "360-podmoskovye", "360-podmoskovie", "360-news", "krym24", "moskva-24", "RTBalkan.ru",
 }
 
 # Additional verified names used only for matching XMLTV IDs.
@@ -208,6 +213,23 @@ def apply_epg_ids(chosen):
                 }
                 if not candidate_ids:
                     raise ValueError("XMLTV source contains no programme channel IDs")
+                programme_starts = [
+                    node.get("start", "").strip()
+                    for node in candidate_root.findall("programme")
+                    if node.get("start")
+                ]
+                offsets = {
+                    match.group(1)
+                    for value in programme_starts
+                    for match in [re.search(r"([+-]\\d{4})$", value)]
+                    if match
+                }
+                if not programme_starts or offsets != {"+0300"}:
+                    raise ValueError(
+                        f"XMLTV timestamps are not consistently Moscow time (+0300): {sorted(offsets)}"
+                    )
+                if any(not re.search(r"[+-]\\d{4}$", value) for value in programme_starts):
+                    raise ValueError("XMLTV contains programme times without an explicit UTC offset")
                 root = candidate_root
                 programme_ids = candidate_ids
                 EPG_URL = source_url
@@ -432,6 +454,11 @@ def quality_score(value):
     return height * 10 + progressive
 
 def classify(channel_id, categories, feed, title=""):
+    # Local-only feeds are kept separate from nationwide channels.
+    areas = set(feed.get("broadcast_area") or [])
+    if "c/RU" not in areas and areas & {"s/RU-SPE", "s/RU-LEN"}:
+        return "Санкт-Петербург и Ленобласть"
+
     # Explicit editorial corrections take priority over imperfect source tags.
     if channel_id in CATEGORY_OVERRIDES:
         return CATEGORY_OVERRIDES[channel_id]
