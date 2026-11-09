@@ -296,9 +296,13 @@ def build_merged_epg(chosen):
                     child.text.strip() for child in node.findall("display-name")
                     if child.text and child.text.strip()
                 ]
+                # Short but distinctive Russian channel names are common
+                # (НТВ, СТС, ТНТ, МИР, ЧЕ, 2x2). Keep aliases of 2+
+                # characters; collisions remain blocked by alias_to_id /
+                # ambiguous_aliases and the final one-to-one match check.
                 normalized = {
                     normalize_epg_name(name) for name in names
-                    if len(normalize_epg_name(name)) >= 4
+                    if len(normalize_epg_name(name)) >= 2
                 }
                 matches = {
                     alias_to_id[name] for name in normalized
