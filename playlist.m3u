@@ -33,8 +33,8 @@ https://tvzvezda.bonus-tv.ru/cdn/tvzvezda/playlist.m3u8
 http://tvzvezda.bonus-tv.ru/cdn/zvezdaplus/playlist.m3u8
 #EXTINF:-1 tvg-id="2271" tvg-logo="https://i.imgur.com/r5HzA6J.png" tvg-name="Известия" group-title="Общероссийские",Известия
 http://igi-hls.cdnvideo.ru/igi/igi_tcode/playlist.m3u8
-#EXTINF:-1 tvg-id="9078" tvg-logo="https://tvcongress.ru/bitrix/templates/mbntheme/img/logo_tvc.svg" tvg-name="Конгресс ТВ HD" group-title="Общероссийские",Конгресс ТВ
-https://live-3.otcnet.ru/congresstv/index.m3u8
+#EXTINF:-1 tvg-id="9078" tvg-name="Конгресс ТВ HD" group-title="Общероссийские",Конгресс ТВ
+https://stitch.teletarget.ru/api/v1/hls/504/158/index.m3u8
 #EXTINF:-1 tvg-id="9093" tvg-logo="https://lapki.live/lapki_og.png" tvg-name="Лапки Live HD" group-title="Общероссийские",Лапки Live
 https://fs.uplink.kz/lapki_live/mono.m3u8?token=onlinetv
 #EXTINF:-1 tvg-id="2465" tvg-logo="https://i.imgur.com/gCmCRfe.png" tvg-name="ЛДПР ТВ" group-title="Общероссийские",ЛДПР ТВ
@@ -385,8 +385,6 @@ http://176.118.197.101/MirSeriala/index.m3u8
 https://fs.uplink.kz/mosfilm/mono.m3u8?token=onlinetv
 #EXTINF:-1 tvg-id="1584" tvg-name="МУЖСКОЕ КИНО" group-title="Фильмы и сериалы",Мужское кино
 https://fs.uplink.kz/muzhskoe_kino/mono.m3u8?token=onlinetv
-#EXTINF:-1 tvg-id="2444" tvg-logo="https://i.imgur.com/xyztpBf.png" tvg-name="Мужской" group-title="Фильмы и сериалы",Мужской
-https://fonbet.mediacdn.ru/live/muzhskoi/playlist.m3u8
 #EXTINF:-1 tvg-id="2831" tvg-logo="https://i.imgur.com/iwTMl8O.png" tvg-name="Наш Кинопоказ HD" group-title="Фильмы и сериалы",Наш Кинопоказ
 http://46.53.200.153:7777/play/SRT_Nash_kinopokaz/index.m3u8
 #EXTINF:-1 tvg-id="2018" tvg-logo="https://i.imgur.com/KO8dhi9.png" tvg-name="Наше HD" group-title="Фильмы и сериалы",Наше
@@ -407,6 +405,8 @@ http://catchup.videoline.ru/asvtv/index.m3u8
 http://stream.mcquack.net/421/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/YfQEflM.png" tvg-name="Про100TV" group-title="Фильмы и сериалы",Про100TV
 https://sirius.greenhosting.ru/Pro100tvRu/video.m3u8
+#EXTINF:-1 tvg-logo="https://cdn2-static.ntv.ru/home/promo/24740/5minut_live.jpg" tvg-name="Пять минут тишины" group-title="Фильмы и сериалы",Пять минут тишины
+https://cdn-dvr.ntv.ru/5_minut_tishiny/index.m3u8
 #EXTINF:-1 tvg-id="12" tvg-name="РОДНОЕ КИНО" group-title="Фильмы и сериалы",Родное Кино
 https://stream8.cinerama.uz/1052/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-id="994" tvg-logo="https://i.imgur.com/w0ZE9QJ.png" tvg-name="Русский бестселлер" group-title="Фильмы и сериалы",Русский бестселлер
@@ -443,8 +443,6 @@ https://cityeden.catcast.tv/content/45268/index.m3u8
 https://cityeden.catcast.tv/content/41333/index.m3u8
 #EXTINF:-1 tvg-id="cityedem-telenov" tvg-logo="https://i.imgur.com/mT5liTh.png" tvg-name="Сити Эдем - Теленовелла" group-title="Фильмы и сериалы",Сити Эдем ТелеНовелла
 https://cityeden.catcast.tv/content/46209/index.m3u8
-#EXTINF:-1 tvg-logo="https://cdn2-static.ntv.ru/home/promo/24740/skoraya_pom_llive.jpg" tvg-name="Скорая помощь" group-title="Фильмы и сериалы",Скорая помощь
-https://cdn-dvr.ntv.ru/Skoraja_pomosh/index.m3u8
 #EXTINF:-1 tvg-id="smotrim-100-gorkogo" tvg-logo="https://cdn.smotrim.ru/photobank/prod/large/156/126/56.jpg" tvg-name="Смотрим 100% Горького" group-title="Фильмы и сериалы",Смотрим 100% Горького
 https://stream.smotrim.ru/hls2/fasttv07/playlist_3.m3u8
 #EXTINF:-1 tvg-id="smotrim-100-klassika" tvg-logo="https://i.imgur.com/aASNpKq.png" tvg-name="Смотрим 100% Классика" group-title="Фильмы и сериалы",Смотрим 100% Классика
@@ -463,5 +461,7 @@ http://31.148.48.15/Feniks_plus_kino/index.m3u8
 http://stream.mcquack.net/363/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/ZbOqfy4.png" tvg-name="Хорошее кино" group-title="Фильмы и сериалы",Хорошее кино
 https://live-rian.cdnvideo.ru/rian/rus-radio/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://cdn2-static.ntv.ru/home/promo/24740/shef_llive.jpg" tvg-name="Шеф" group-title="Фильмы и сериалы",Шеф
+https://cdn-dvr.ntv.ru/Shef/index.m3u8
 #EXTINF:-1 tvg-id="2309" tvg-logo="https://i.imgur.com/UG63hZ0.png" tvg-name="Шокирующее HD" group-title="Фильмы и сериалы",Шокирующее
 http://stream.mcquack.net/75/index.m3u8
