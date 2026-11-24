@@ -3,7 +3,7 @@
 https://fs.uplink.kz/big_planet/mono.m3u8?token=onlinetv
 #EXTINF:-1 tvg-id="2745" tvg-logo="https://i.imgur.com/3UXk7JR.png" tvg-name="Home 4K" group-title="Общероссийские",Home 4K
 http://88.212.7.14/live/test_home_uhd_tizen/playlist.m3u8
-#EXTINF:-1 tvg-id="shop24" tvg-logo="https://i.imgur.com/qU9ohQu.png" tvg-name="Leomax 24" group-title="Общероссийские",Leomax 24
+#EXTINF:-1 tvg-id="shop24" tvg-logo="https://i.imgur.com/qU9ohQu.png" tvg-name="Leomax 24 HD" group-title="Общероссийские",Leomax 24
 https://tvshops.bonus-tv.ru/cdn/shop24/playlist.m3u8
 #EXTINF:-1 tvg-id="magnat" tvg-logo="https://i.imgur.com/r485aZL.png" tvg-name="Magnat" group-title="Общероссийские",Magnat
 https://s1.tv-nano.com/Magnat_HD_5119705/video.m3u8
@@ -33,8 +33,8 @@ https://tvzvezda.bonus-tv.ru/cdn/tvzvezda/playlist.m3u8
 http://tvzvezda.bonus-tv.ru/cdn/zvezdaplus/playlist.m3u8
 #EXTINF:-1 tvg-id="2271" tvg-logo="https://i.imgur.com/r5HzA6J.png" tvg-name="Известия" group-title="Общероссийские",Известия
 http://igi-hls.cdnvideo.ru/igi/igi_tcode/playlist.m3u8
-#EXTINF:-1 tvg-id="9078" tvg-name="Конгресс ТВ HD" group-title="Общероссийские",Конгресс ТВ
-https://stitch.teletarget.ru/api/v1/hls/504/158/index.m3u8
+#EXTINF:-1 tvg-id="9078" tvg-logo="https://tvcongress.ru/bitrix/templates/mbntheme/img/logo_tvc.svg" tvg-name="Конгресс ТВ HD" group-title="Общероссийские",Конгресс ТВ
+https://live-3.otcnet.ru/congresstv/index.m3u8
 #EXTINF:-1 tvg-id="9093" tvg-logo="https://lapki.live/lapki_og.png" tvg-name="Лапки Live HD" group-title="Общероссийские",Лапки Live
 https://fs.uplink.kz/lapki_live/mono.m3u8?token=onlinetv
 #EXTINF:-1 tvg-id="2465" tvg-logo="https://i.imgur.com/gCmCRfe.png" tvg-name="ЛДПР ТВ" group-title="Общероссийские",ЛДПР ТВ
@@ -65,8 +65,8 @@ https://streaming.thestream.cyou/live/43.m3u8
 https://tv-streaming.bsh.ru:21938/probusiness/probusiness.stream/playlist.m3u8
 #EXTINF:-1 tvg-id="2829" tvg-logo="https://i.imgur.com/QpIGAT0.png" tvg-name="Про Любовь HD" group-title="Общероссийские",Про Любовь
 http://hls127.freeott.top:8080/ProLubovHD/video.m3u8
-#EXTINF:-1 tvg-id="2297" tvg-logo="https://i.imgur.com/KlsnfG9.png" tvg-name="Продвижение" group-title="Общероссийские",Продвижение
-https://streaming.astrakhan.ru/proastrakhanhd/index.m3u8
+#EXTINF:-1 tvg-id="2297" tvg-name="Продвижение" group-title="Общероссийские",Продвижение
+http://origin5.mediacdn.ru/live/prodvizhenie_new/index.m3u8
 #EXTINF:-1 tvg-id="prosveschenie" tvg-logo="https://i.imgur.com/uppFhhq.png" tvg-name="Просвещение" group-title="Общероссийские",Просвещение
 http://cdn-01.bonus-tv.ru/prosveschenie_edge/index.m3u8
 #EXTINF:-1 tvg-id="427" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/5-tv_logo_%282023%29.svg/960px-5-tv_logo_%282023%29.svg.png" tvg-name="Пятый канал" group-title="Общероссийские",Пятый канал
@@ -84,7 +84,7 @@ https://stream8.cinerama.uz/1020/index.m3u8
 #EXTINF:-1 tvg-logo="https://ngrch.github.io/iptv/logos/rossiya_24.png" tvg-name="Россия-24" group-title="Общероссийские",Россия-24
 https://stream8.cinerama.uz/1021/index.m3u8
 #EXTINF:-1 tvg-id="690" tvg-logo="https://i.imgur.com/9At4oG7.png" tvg-name="Санкт-Петербург" group-title="Общероссийские",Санкт-Петербург
-http://31.148.48.15/Sankt_Peterburg/index.m3u8
+https://stream.smotrim.ru/hls2/ext_spbtv/playlist_5.m3u8
 #EXTINF:-1 tvg-id="663" tvg-logo="https://i.imgur.com/u4q1rMT.png" tvg-name="Сарафан" group-title="Общероссийские",Сарафан
 http://stream.mcquack.net/81/index.m3u8
 #EXTINF:-1 tvg-id="2294" tvg-logo="https://www.mtis.by/upload/medialibrary/717/v07nk6rmf6m1mno8ujhbkcg8nstkfjgv/Slide%2016_9%20-%2050.png" tvg-name="Союзный" group-title="Общероссийские",Союзный
@@ -101,10 +101,12 @@ http://trk555.tv:8888/live
 https://stream8.cinerama.uz/1031/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-id="2457" tvg-logo="https://i.imgur.com/yyNR5jG.png" tvg-name="Точка ТВ" group-title="Общероссийские",Точка ТВ
 http://31.148.48.15/Tochka_TV/index.m3u8
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/0/00/Channel4_logo.jpg" tvg-name="Четвёртый канал" group-title="Общероссийские",Четвёртый канал
+https://river-3-370.rtbcdn.ru/stream/genetta-316.m9.rutube.ru/60Ro5OWl7WWOswbVMQlqFw/1795975765/c6f66b644424c117f41e48062719ceed/576p_stream.m3u8
 #EXTINF:-1 tvg-id="yuvelirochka" tvg-logo="https://i.imgur.com/IcWtXCZ.png" tvg-name="Ювелирочка" group-title="Общероссийские",Ювелирочка
 https://live-uvelirochka.cdnvideo.ru/uvelirochka/uvelirochka_720p3/playlist.m3u8
 #EXTINF:-1 tvg-id="516" tvg-logo="https://i.imgur.com/nSSUHcg.png" tvg-name=".sci-fi" group-title="Познавательные",.sci-fi
-http://116.90.120.149:8000/play/a0ao/index.m3u8
+http://stream.mcquack.net/180/index.m3u8
 #EXTINF:-1 tvg-id="2423" tvg-name="365 дней ТВ" group-title="Познавательные",365 дней ТВ
 https://stream8.cinerama.uz/1242/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/gst7wW7.png" tvg-name="English Class" group-title="Познавательные",English Class
@@ -179,9 +181,9 @@ https://api.alpaca.t62a.com/hls/9110/stream0.m3u8
 https://stream8.cinerama.uz/1236/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-id="675" tvg-logo="https://i.imgur.com/uIiAdBv.png" tvg-name="Моя Планета" group-title="Познавательные",Моя Планета
 http://31.148.48.15/Moya_Planeta_HD/index.m3u8
-#EXTINF:-1 tvg-id="2028" tvg-logo="https://i.imgur.com/Sl8c9eB.png" tvg-name="Морской" group-title="Познавательные",Моя стихия
+#EXTINF:-1 tvg-logo="https://i.imgur.com/Sl8c9eB.png" tvg-name="Моя стихия" group-title="Познавательные",Моя стихия
 http://stream.mcquack.net/141/index.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/dYj3XDa.png" tvg-name="Нано" group-title="Познавательные",Нано
+#EXTINF:-1 tvg-id="2428" tvg-logo="https://i.imgur.com/dYj3XDa.png" tvg-name="Нано" group-title="Познавательные",Нано
 http://185.23.80.23:8080/NANO_HD/index.m3u8
 #EXTINF:-1 tvg-name="Наука 2.0" group-title="Познавательные",Наука 2.0
 https://vod.tuva.ru/nauka2/index.m3u8
@@ -218,12 +220,12 @@ https://stream8.cinerama.uz/1062/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-id="434" tvg-name="Усадьба" group-title="Познавательные",Усадьба
 https://stream8.cinerama.uz/1427/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-id="935" tvg-logo="https://i.imgur.com/Q4A6ci4.png" tvg-name=".black" group-title="Развлекательные",.black
-http://116.90.120.149:8000/play/a0s4/index.m3u8
+http://s1.merlive.am/black/index.m3u8
 #EXTINF:-1 tvg-id="311" tvg-logo="https://i.imgur.com/GET9Qut.png" tvg-name=".red" group-title="Развлекательные",.red
 http://178.134.1.158:8081/red/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/nUSx1jF.png" tvg-name="8 канал" group-title="Развлекательные",8 канал
 http://45.11.139.43:8555/8kanal/index.m3u8
-#EXTINF:-1 tvg-logo="https://i.postimg.cc/3x3ZfvkN/domashniyinternational.png" tvg-name="Dомашний International" group-title="Развлекательные",Dомашний International
+#EXTINF:-1 tvg-id="domashny-int" tvg-logo="https://i.postimg.cc/3x3ZfvkN/domashniyinternational.png" tvg-name="Домашний International" group-title="Развлекательные",Dомашний International
 https://cdn4.skygo.mn/live/disk1/Domashni/HLSv3-FTA/Domashni.m3u8
 #EXTINF:-1 tvg-id="2383" tvg-logo="https://i.imgur.com/ETmpllL.png" tvg-name="Fashion & Lifestyle" group-title="Развлекательные",Fashion&LifeStyle
 http://stream.mcquack.net/119/index.m3u8
@@ -267,7 +269,7 @@ https://cdn4.skygo.mn/live/disk1/Fashion_TV/HLSv3-FTA/Fashion_TV.m3u8
 https://bl.rutube.ru/livestream/310744c10a5809da38aa445c952976da/index.m3u8?e=2066519758&s=dmUf6BUQzDBTwtQOseAfog&scheme=https
 #EXTINF:-1 tvg-logo="https://i.imgur.com/JLAvq8O.png" tvg-name="ТВ-3" group-title="Развлекательные",ТВ-3
 http://31.148.5.241/kanal_15/index.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/kKAM7dP.png" tvg-name="Твое ТВ" group-title="Развлекательные",Твое ТВ
+#EXTINF:-1 tvg-id="5441" tvg-logo="https://i.imgur.com/kKAM7dP.png" tvg-name="Твое ТВ HD" group-title="Развлекательные",Твое ТВ
 http://tvoetv.space:8080/tvoetv/index.m3u8
 #EXTINF:-1 tvg-id="tvoetv-humor" tvg-logo="https://smotret.tv/images/tvoe-tv-yumor.webp" tvg-name="Твое ТВ - Юмор" group-title="Развлекательные",Твое ТВ Юмор
 http://tvoetv.space:8080/tvoetv_humor/index.m3u8
@@ -285,7 +287,7 @@ https://stream8.cinerama.uz/1227/tracks-v1a1/mono.m3u8
 http://31.148.48.15/Fan/index.m3u8
 #EXTINF:-1 tvg-id="608" tvg-logo="https://i.imgur.com/1j7cT2I.png" tvg-name="Hollywood" group-title="Фильмы и сериалы",Hollywood
 http://31.148.48.15/MGM_HD/index.m3u8
-#EXTINF:-1 tvg-name="Star Cinema" group-title="Фильмы и сериалы",Star Cinema
+#EXTINF:-1 tvg-id="2145" tvg-name="Star Cinema" group-title="Фильмы и сериалы",Star Cinema
 https://dash2.antik.sk/live/test_star_cinema_atktv/playlist.m3u8
 #EXTINF:-1 tvg-id="9162" tvg-logo="https://i.imgur.com/eGuGHnZ.png" tvg-name="Star Family" group-title="Фильмы и сериалы",Star Family
 https://dash2.antik.sk/live/test_star_family_atktv/playlist.m3u8
@@ -317,7 +319,7 @@ https://v2.catcast.tv/content/47609/index.m3u8
 http://46.53.200.153:7777/play/TV_1000/index.m3u8
 #EXTINF:-1 tvg-id="125" tvg-logo="https://i.imgur.com/TMmyuzh.png" tvg-name="Viju TV1000 Action" group-title="Фильмы и сериалы",viju TV1000 action
 https://stream8.cinerama.uz/1225/tracks-v1a1/mono.m3u8
-#EXTINF:-1 tvg-id="viju-tv1000-romantica" tvg-logo="https://rnnxdki1nv.a.trbcdn.net/viasat/production/tvchannels/dc243048-c5ad-4ccc-86c6-3a480874ec29/logos/flo59mr6lh1jf68g3021urgwtd5k" tvg-name="viju TV1000 romantica" group-title="Фильмы и сериалы",viju TV1000 romantica
+#EXTINF:-1 tvg-id="viju-tv1000-romantica" tvg-logo="https://rnnxdki1nv.a.trbcdn.net/viasat/production/tvchannels/dc243048-c5ad-4ccc-86c6-3a480874ec29/logos/flo59mr6lh1jf68g3021urgwtd5k" tvg-name="viju TV1000 Romantica" group-title="Фильмы и сериалы",viju TV1000 romantica
 http://46.53.200.153:7777/play/Viju_Drama/index.m3u8
 #EXTINF:-1 tvg-id="9057" tvg-logo="https://www.cableman.ru/sites/default/files/viju_TV1000_%D0%BD%D0%BE%D0%B2%D0%B5%D0%BB%D0%BB%D0%B0_color_rgb_02%20%281%29.png" tvg-name="Viju TV1000 Новелла HD" group-title="Фильмы и сериалы",viju TV1000 новелла
 http://46.53.200.153:7777/play/VIJU_TV_1000_novella/index.m3u8
@@ -333,6 +335,8 @@ http://46.53.200.153:7777/play/Viju_Serial_HD/index.m3u8
 http://31.148.48.15/A2/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/146OgfU.png" tvg-name="Альфа Синема" group-title="Фильмы и сериалы",Альфа Синема
 https://live.15plusmg.ru/memfs/b389173a-df4e-4171-8904-e249893e71eb.m3u8
+#EXTINF:-1 tvg-logo="https://cdn2-static.ntv.ru/home/promo/24740/balabol_vse.jpg" tvg-name="Балабол" group-title="Фильмы и сериалы",Балабол
+https://cdn-dvr.ntv.ru/Balabol/index.m3u8
 #EXTINF:-1 tvg-id="2832" tvg-logo="https://i.imgur.com/KcOi4Os.png" tvg-name="Блокбастер HD" group-title="Фильмы и сериалы",Блокбастер
 http://stream.mcquack.net/364/index.m3u8
 #EXTINF:-1 tvg-id="1395" tvg-logo="https://i.imgur.com/YLQRnXt.png" tvg-name="BollywooD HD" group-title="Фильмы и сериалы",Болливуд HD
@@ -355,7 +359,7 @@ http://31.148.48.15/Kineko_HD/index.m3u8
 http://kino-1.catcast.tv/content/38617/index.m3u8
 #EXTINF:-1 tvg-id="kino-24" tvg-logo="https://i.imgur.com/QAdDARF.png" tvg-name="Kino 24" group-title="Фильмы и сериалы",Кино 24
 http://sirius.greenhosting.ru/Kino24Ru/video.m3u8
-#EXTINF:-1 tvg-name="Кино ТВ" group-title="Фильмы и сериалы",Кино ТВ
+#EXTINF:-1 tvg-id="1037" tvg-name="КИНО ТВ" group-title="Фильмы и сериалы",Кино ТВ
 https://vod.tuva.ru/kinotv/index.m3u8
 #EXTINF:-1 tvg-id="821" tvg-logo="https://i.imgur.com/dVjtth0.png" tvg-name="КИНОКОМЕДИЯ" group-title="Фильмы и сериалы",Кинокомедия
 http://stream.mcquack.net/265/index.m3u8
@@ -439,7 +443,7 @@ https://v2.catcast.tv/content/38128/index.m3u8
 https://cityeden.catcast.tv/content/45268/index.m3u8
 #EXTINF:-1 tvg-id="cityedem-kinoact" tvg-logo="https://i.imgur.com/uuzuvD0.png" tvg-name="Сити Эдем - КиноЭкшен" group-title="Фильмы и сериалы",Сити Эдем КиноЭкшен
 https://cityeden.catcast.tv/content/41333/index.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/mT5liTh.png" tvg-name="Сити Эдем ТелеНовелла" group-title="Фильмы и сериалы",Сити Эдем ТелеНовелла
+#EXTINF:-1 tvg-id="cityedem-telenov" tvg-logo="https://i.imgur.com/mT5liTh.png" tvg-name="Сити Эдем - Теленовелла" group-title="Фильмы и сериалы",Сити Эдем ТелеНовелла
 https://cityeden.catcast.tv/content/46209/index.m3u8
 #EXTINF:-1 tvg-id="smotrim-100-gorkogo" tvg-logo="https://cdn.smotrim.ru/photobank/prod/large/156/126/56.jpg" tvg-name="Смотрим 100% Горького" group-title="Фильмы и сериалы",Смотрим 100% Горького
 https://stream.smotrim.ru/hls2/fasttv07/playlist_3.m3u8
