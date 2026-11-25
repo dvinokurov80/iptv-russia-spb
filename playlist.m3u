@@ -65,8 +65,8 @@ https://streaming.thestream.cyou/live/43.m3u8
 https://tv-streaming.bsh.ru:21938/probusiness/probusiness.stream/playlist.m3u8
 #EXTINF:-1 tvg-id="2829" tvg-logo="https://i.imgur.com/QpIGAT0.png" tvg-name="Про Любовь HD" group-title="Общероссийские",Про Любовь
 http://hls127.freeott.top:8080/ProLubovHD/video.m3u8
-#EXTINF:-1 tvg-id="2297" tvg-name="Продвижение" group-title="Общероссийские",Продвижение
-http://origin5.mediacdn.ru/live/prodvizhenie_new/index.m3u8
+#EXTINF:-1 tvg-id="2297" tvg-logo="https://i.imgur.com/KlsnfG9.png" tvg-name="Продвижение" group-title="Общероссийские",Продвижение
+https://streaming.astrakhan.ru/proastrakhanhd/index.m3u8
 #EXTINF:-1 tvg-id="prosveschenie" tvg-logo="https://i.imgur.com/uppFhhq.png" tvg-name="Просвещение" group-title="Общероссийские",Просвещение
 http://cdn-01.bonus-tv.ru/prosveschenie_edge/index.m3u8
 #EXTINF:-1 tvg-id="427" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/5-tv_logo_%282023%29.svg/960px-5-tv_logo_%282023%29.svg.png" tvg-name="Пятый канал" group-title="Общероссийские",Пятый канал
@@ -187,6 +187,8 @@ http://stream.mcquack.net/141/index.m3u8
 http://185.23.80.23:8080/NANO_HD/index.m3u8
 #EXTINF:-1 tvg-name="Наука 2.0" group-title="Познавательные",Наука 2.0
 https://vod.tuva.ru/nauka2/index.m3u8
+#EXTINF:-1 tvg-id="2433" tvg-logo="https://i.imgur.com/67ZVDKW.png" tvg-name="Наша Тема" group-title="Познавательные",Наша Тема
+https://fonbet.mediacdn.ru/live/nashatema/playlist.m3u8
 #EXTINF:-1 tvg-id="2419" tvg-logo="https://i.imgur.com/nZwBaeW.png" tvg-name="Охота и рыбалка" group-title="Познавательные",Охота и рыбалка
 https://stream8.cinerama.uz/1038/tracks-v1a1/mono.m3u8
 #EXTINF:-1 tvg-id="1681" tvg-logo="https://i.imgur.com/Bj1jI7F.png" tvg-name="Охотник и Рыболов HD" group-title="Познавательные",Охотник и рыболов
@@ -288,7 +290,7 @@ http://31.148.48.15/Fan/index.m3u8
 #EXTINF:-1 tvg-id="608" tvg-logo="https://i.imgur.com/1j7cT2I.png" tvg-name="Hollywood" group-title="Фильмы и сериалы",Hollywood
 http://31.148.48.15/MGM_HD/index.m3u8
 #EXTINF:-1 tvg-id="2145" tvg-name="Star Cinema" group-title="Фильмы и сериалы",Star Cinema
-https://dash2.antik.sk/live/test_star_cinema_atktv/playlist.m3u8
+http://s7.merlive.am/starsinema/index.m3u8
 #EXTINF:-1 tvg-id="9162" tvg-logo="https://i.imgur.com/eGuGHnZ.png" tvg-name="Star Family" group-title="Фильмы и сериалы",Star Family
 https://dash2.antik.sk/live/test_star_family_atktv/playlist.m3u8
 #EXTINF:-1 tvg-id="6241" tvg-logo="https://images.iptv.rt.ru/images/d60qp8omife4gis72tk0.png" tvg-name="START Air HD" group-title="Фильмы и сериалы",START Air
@@ -389,6 +391,8 @@ http://176.118.197.101/MirSeriala/index.m3u8
 http://stream.mcquack.net/369/index.m3u8
 #EXTINF:-1 tvg-id="1584" tvg-logo="https://i.imgur.com/8RN3tQC.png" tvg-name="МУЖСКОЕ КИНО" group-title="Фильмы и сериалы",Мужское кино
 http://stream.mcquack.net/107/index.m3u8
+#EXTINF:-1 tvg-id="2444" tvg-logo="https://i.imgur.com/xyztpBf.png" tvg-name="Мужской" group-title="Фильмы и сериалы",Мужской
+https://fonbet.mediacdn.ru/live/muzhskoi/playlist.m3u8
 #EXTINF:-1 tvg-id="2831" tvg-logo="https://i.imgur.com/iwTMl8O.png" tvg-name="Наш Кинопоказ HD" group-title="Фильмы и сериалы",Наш Кинопоказ
 http://46.53.200.153:7777/play/SRT_Nash_kinopokaz/index.m3u8
 #EXTINF:-1 tvg-id="2018" tvg-logo="https://i.imgur.com/KO8dhi9.png" tvg-name="Наше HD" group-title="Фильмы и сериалы",Наше
